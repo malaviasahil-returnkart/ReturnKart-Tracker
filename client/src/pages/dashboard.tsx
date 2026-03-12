@@ -65,6 +65,25 @@ export default function Dashboard() {
       const stored = localStorage.getItem('rk_tokens');
       if (stored) setTokens(JSON.parse(stored));
     }
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'rk_tokens' && e.newValue) {
+        setTokens(JSON.parse(e.newValue));
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+
+    const interval = setInterval(() => {
+      const stored = localStorage.getItem('rk_tokens');
+      if (stored && !tokens) {
+        setTokens(JSON.parse(stored));
+      }
+    }, 2000);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
   }, []);
 
   useEffect(() => { loadOrders(); }, []);
@@ -82,7 +101,7 @@ export default function Dashboard() {
   async function handleConnectGmail() {
     try {
       const url = await getAuthUrl();
-      window.location.href = url;
+      window.open(url, '_blank');
     } catch (e) {
       alert('Could not connect to backend. Make sure your backend is running.');
     }
