@@ -14,10 +14,12 @@ function getOAuth2Client(redirectUri: string) {
   );
 }
 
-function getRedirectUri(req: any): string {
-  const protocol = req.headers["x-forwarded-proto"] || req.protocol || "https";
-  const host = req.headers["x-forwarded-host"] || req.headers.host;
-  return `${protocol}://${host}/api/email/callback`;
+function getRedirectUri(): string {
+  const domain = process.env.REPLIT_DOMAINS?.split(",")[0];
+  if (domain) {
+    return `https://${domain}/api/email/callback`;
+  }
+  return `http://localhost:5000/api/email/callback`;
 }
 
 const PLATFORM_PATTERNS: Record<string, RegExp> = {
@@ -91,7 +93,7 @@ export function registerEmailRoutes(app: Express) {
       if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
         return res.status(500).json({ message: "Google OAuth credentials not configured" });
       }
-      const redirectUri = getRedirectUri(req);
+      const redirectUri = getRedirectUri();
       const oauth2Client = getOAuth2Client(redirectUri);
       const state = crypto.randomBytes(32).toString("hex");
       pendingStates.set(state, Date.now());
@@ -121,7 +123,7 @@ export function registerEmailRoutes(app: Express) {
       for (const [key, ts] of pendingStates) {
         if (Date.now() - ts > 10 * 60 * 1000) pendingStates.delete(key);
       }
-      const redirectUri = getRedirectUri(req);
+      const redirectUri = getRedirectUri();
       const oauth2Client = getOAuth2Client(redirectUri);
       const { tokens } = await oauth2Client.getToken(code);
       const encodedTokens = encodeURIComponent(JSON.stringify(tokens));
@@ -139,7 +141,7 @@ export function registerEmailRoutes(app: Express) {
         return res.status(400).json({ message: "Access token is required" });
       }
 
-      const redirectUri = getRedirectUri(req);
+      const redirectUri = getRedirectUri();
       const oauth2Client = getOAuth2Client(redirectUri);
       oauth2Client.setCredentials({ access_token, refresh_token });
 
