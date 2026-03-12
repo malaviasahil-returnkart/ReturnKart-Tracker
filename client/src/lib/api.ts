@@ -1,4 +1,4 @@
-const BACKEND_URL = 'https://return-manager.replit.app';
+const BACKEND_URL = 'https://returnkart-backend-1.replit.app';
 
 export async function getAuthUrl(): Promise<string> {
   const res = await fetch(`${BACKEND_URL}/api/email/auth-url`);
