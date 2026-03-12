@@ -1,47 +1,21 @@
-import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Link } from "wouter";
-import type { ReturnRequest } from "@shared/schema";
-import {
-  Package,
-  TrendingUp,
-  Clock,
-  CheckCircle2,
-  IndianRupee,
-  Plus,
-  ArrowRight,
-  Truck,
-  RotateCcw,
-  ShieldCheck,
-} from "lucide-react";
-import { getStatusColor, getStatusLabel, getPlatformIcon, formatCurrency } from "@/lib/helpers";
+import { useEffect, useState } from 'react';
+import { getAuthUrl, syncEmails, getOrders, getOrderStats } from '@/lib/api';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Package, Clock, CheckCircle2, IndianRupee, Mail, RefreshCw, LogIn } from 'lucide-react';
 
-function StatCard({
-  title,
-  value,
-  icon: Icon,
-  color,
-  subtitle,
-}: {
-  title: string;
-  value: string | number;
-  icon: any;
-  color: string;
-  subtitle?: string;
+function StatCard({ title, value, icon: Icon, color, subtitle }: {
+  title: string; value: string | number; icon: any; color: string; subtitle?: string;
 }) {
   return (
-    <Card className="border border-border" data-testid={`stat-card-${title.toLowerCase().replace(/\s/g, "-")}`}>
+    <Card className="border border-border">
       <CardContent className="p-5">
         <div className="flex items-start justify-between">
           <div className="space-y-1">
             <p className="text-sm text-muted-foreground font-medium">{title}</p>
             <p className="text-2xl font-bold tracking-tight">{value}</p>
-            {subtitle && (
-              <p className="text-xs text-muted-foreground">{subtitle}</p>
-            )}
+            {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
           </div>
           <div className={`p-2.5 rounded-lg ${color}`}>
             <Icon className="h-5 w-5" />
@@ -52,242 +26,182 @@ function StatCard({
   );
 }
 
-function RecentReturnRow({ request }: { request: ReturnRequest }) {
-  const statusColor = getStatusColor(request.status);
-  const PlatformIcon = getPlatformIcon(request.platform);
+function getStatusColor(status: string) {
+  if (status === 'active') return 'bg-blue-100 text-blue-700';
+  if (status === 'expiring_soon') return 'bg-orange-100 text-orange-700';
+  if (status === 'expired') return 'bg-red-100 text-red-700';
+  if (status === 'returned' || status === 'return_initiated') return 'bg-green-100 text-green-700';
+  return 'bg-gray-100 text-gray-700';
+}
 
-  return (
-    <Link href={`/returns/${request.id}`}>
-      <div
-        className="flex items-center gap-4 p-3.5 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer group"
-        data-testid={`recent-return-${request.id}`}
-      >
-        <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-accent flex items-center justify-center">
-          <PlatformIcon className="h-5 w-5 text-accent-foreground" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate">{request.productName}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {request.orderId} · {request.platform.charAt(0).toUpperCase() + request.platform.slice(1)}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Badge variant="secondary" className={`text-xs ${statusColor}`}>
-            {getStatusLabel(request.status)}
-          </Badge>
-          <span className="text-sm font-semibold whitespace-nowrap">
-            {formatCurrency(request.amount)}
-          </span>
-          <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-        </div>
-      </div>
-    </Link>
-  );
+function getStatusLabel(status: string) {
+  if (status === 'active') return 'Active';
+  if (status === 'expiring_soon') return 'Expiring Soon';
+  if (status === 'expired') return 'Expired';
+  if (status === 'returned') return 'Returned';
+  if (status === 'return_initiated') return 'Return Initiated';
+  return status;
 }
 
 export default function Dashboard() {
-  const { data: returns, isLoading, isError } = useQuery<ReturnRequest[]>({
-    queryKey: ["/api/returns"],
-  });
+  const [orders, setOrders] = useState<any[]>([]);
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [tokens, setTokens] = useState<any>(null);
+  const [syncMessage, setSyncMessage] = useState('');
 
-  const stats = returns
-    ? {
-        total: returns.length,
-        active: returns.filter((r) =>
-          ["initiated", "pickup_scheduled", "picked_up", "in_transit", "received", "inspecting"].includes(r.status)
-        ).length,
-        completed: returns.filter((r) =>
-          ["refund_completed"].includes(r.status)
-        ).length,
-        totalRefund: returns
-          .filter((r) => r.status === "refund_completed")
-          .reduce((sum, r) => sum + r.amount, 0),
-      }
-    : { total: 0, active: 0, completed: 0, totalRefund: 0 };
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tokensParam = params.get('tokens');
+    if (tokensParam) {
+      try {
+        const parsedTokens = JSON.parse(decodeURIComponent(tokensParam));
+        setTokens(parsedTokens);
+        localStorage.setItem('rk_tokens', JSON.stringify(parsedTokens));
+        window.history.replaceState({}, '', '/');
+      } catch (e) {}
+    } else {
+      const stored = localStorage.getItem('rk_tokens');
+      if (stored) setTokens(JSON.parse(stored));
+    }
+  }, []);
 
-  const recentReturns = returns?.slice(0, 5) ?? [];
+  useEffect(() => { loadOrders(); }, []);
 
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <Skeleton className="h-8 w-48" />
-            <Skeleton className="h-4 w-64 mt-2" />
-          </div>
-          <Skeleton className="h-10 w-36" />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Card key={i} className="border border-border">
-              <CardContent className="p-5">
-                <Skeleton className="h-16 w-full" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-        <Card className="border border-border">
-          <CardContent className="p-5">
-            <Skeleton className="h-48 w-full" />
-          </CardContent>
-        </Card>
-      </div>
-    );
+  async function loadOrders() {
+    setLoading(true);
+    try {
+      const [ordersData, statsData] = await Promise.all([getOrders(), getOrderStats()]);
+      setOrders(Array.isArray(ordersData) ? ordersData : []);
+      setStats(statsData);
+    } catch (e) { console.error(e); }
+    setLoading(false);
   }
 
-  if (isError) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <div className="p-4 rounded-full bg-destructive/10 mb-4">
-          <Package className="h-8 w-8 text-destructive" />
-        </div>
-        <h2 className="text-lg font-semibold">Something went wrong</h2>
-        <p className="text-sm text-muted-foreground mt-1 max-w-[300px]">
-          Unable to load your returns. Please try refreshing the page.
-        </p>
-      </div>
-    );
+  async function handleConnectGmail() {
+    try {
+      const url = await getAuthUrl();
+      window.location.href = url;
+    } catch (e) {
+      alert('Could not connect to backend. Make sure your backend is running.');
+    }
   }
+
+  async function handleSync() {
+    if (!tokens) { await handleConnectGmail(); return; }
+    setSyncing(true);
+    setSyncMessage('');
+    try {
+      const result = await syncEmails(tokens);
+      setSyncMessage(`✅ Synced ${result.synced} orders from your Gmail!`);
+      await loadOrders();
+    } catch (e) {
+      setSyncMessage('❌ Sync failed. Try reconnecting Gmail.');
+    }
+    setSyncing(false);
+  }
+
+  function handleDisconnect() {
+    localStorage.removeItem('rk_tokens');
+    setTokens(null);
+    setSyncMessage('');
+  }
+
+  const daysLeft = (deadline: string) =>
+    Math.ceil((new Date(deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight" data-testid="text-dashboard-title">
-            Dashboard
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Track and manage all your e-commerce returns
-          </p>
+          <h1 className="text-2xl font-bold tracking-tight">ReturnKart Dashboard</h1>
+          <p className="text-muted-foreground text-sm mt-1">Track your ecommerce return windows automatically</p>
         </div>
-        <Link href="/returns/new">
-          <Button data-testid="button-new-return" className="gap-2">
-            <Plus className="h-4 w-4" />
-            New Return
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          {tokens ? (
+            <>
+              <Button onClick={handleSync} disabled={syncing} className="gap-2">
+                <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+                {syncing ? 'Syncing...' : 'Sync Gmail'}
+              </Button>
+              <Button variant="outline" onClick={handleDisconnect}>Disconnect</Button>
+            </>
+          ) : (
+            <Button onClick={handleConnectGmail} className="gap-2">
+              <Mail className="h-4 w-4" /> Connect Gmail
+            </Button>
+          )}
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Total Returns"
-          value={stats.total}
-          icon={Package}
-          color="bg-primary/10 text-primary"
-          subtitle="All time"
-        />
-        <StatCard
-          title="Active Returns"
-          value={stats.active}
-          icon={Clock}
-          color="bg-blue-500/10 text-blue-600"
-          subtitle="In progress"
-        />
-        <StatCard
-          title="Completed"
-          value={stats.completed}
-          icon={CheckCircle2}
-          color="bg-green-500/10 text-green-600"
-          subtitle="Refund received"
-        />
-        <StatCard
-          title="Total Refunds"
-          value={formatCurrency(stats.totalRefund)}
-          icon={IndianRupee}
-          color="bg-purple-500/10 text-purple-600"
-          subtitle="Amount recovered"
-        />
-      </div>
+      {syncMessage && <div className="p-3 rounded-lg bg-muted text-sm">{syncMessage}</div>}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2 border border-border">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold text-base" data-testid="text-recent-returns">Recent Returns</h2>
-              <Link href="/returns">
-                <Button variant="ghost" size="sm" className="text-xs gap-1" data-testid="link-view-all">
-                  View All <ArrowRight className="h-3.5 w-3.5" />
-                </Button>
-              </Link>
+      {!tokens && (
+        <Card className="border-2 border-dashed border-primary/30">
+          <CardContent className="p-8 flex flex-col items-center text-center gap-4">
+            <div className="p-4 rounded-full bg-primary/10">
+              <Mail className="h-8 w-8 text-primary" />
             </div>
-            {recentReturns.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <div className="p-4 rounded-full bg-muted mb-4">
-                  <RotateCcw className="h-8 w-8 text-muted-foreground" />
+            <div>
+              <h2 className="text-lg font-semibold">Connect your Gmail to get started</h2>
+              <p className="text-sm text-muted-foreground mt-1 max-w-sm">
+                ReturnKart will scan your emails from Amazon, Flipkart, Myntra, and more to automatically track your return windows.
+              </p>
+            </div>
+            <Button onClick={handleConnectGmail} size="lg" className="gap-2">
+              <LogIn className="h-4 w-4" /> Connect Gmail
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {stats && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard title="Total Orders" value={stats.total} icon={Package} color="bg-primary/10 text-primary" subtitle="Tracked" />
+          <StatCard title="Active" value={stats.active} icon={Clock} color="bg-blue-500/10 text-blue-600" subtitle="Return window open" />
+          <StatCard title="Expiring Soon" value={stats.expiring_soon} icon={IndianRupee} color="bg-orange-500/10 text-orange-600" subtitle="Within 2 days" />
+          <StatCard title="Returned" value={stats.returned} icon={CheckCircle2} color="bg-green-500/10 text-green-600" subtitle="Completed" />
+        </div>
+      )}
+
+      <Card className="border border-border">
+        <CardContent className="p-5">
+          <h2 className="font-semibold text-base mb-4">Your Orders</h2>
+          {loading ? (
+            <p className="text-sm text-muted-foreground">Loading...</p>
+          ) : orders.length === 0 ? (
+            <div className="text-center py-12">
+              <Package className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+              <p className="text-sm font-medium">No orders found</p>
+              <p className="text-xs text-muted-foreground mt-1">Connect Gmail and sync to see your orders</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {orders.map((order: any) => (
+                <div key={order.id} className="flex items-center gap-4 p-3.5 rounded-lg border border-border">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{order.product_name}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {order.platform?.toUpperCase()} · {order.order_id}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {order.return_deadline && (
+                      <p className="text-xs text-muted-foreground whitespace-nowrap">
+                        {daysLeft(order.return_deadline) > 0 ? `${daysLeft(order.return_deadline)} days left` : 'Expired'}
+                      </p>
+                    )}
+                    <Badge className={`text-xs ${getStatusColor(order.status)}`}>
+                      {getStatusLabel(order.status)}
+                    </Badge>
+                  </div>
                 </div>
-                <h3 className="font-medium text-sm">No returns yet</h3>
-                <p className="text-xs text-muted-foreground mt-1 max-w-[240px]">
-                  Start tracking your returns by creating a new return request
-                </p>
-                <Link href="/returns/new">
-                  <Button variant="outline" size="sm" className="mt-4 gap-1.5" data-testid="button-create-first-return">
-                    <Plus className="h-3.5 w-3.5" /> Create Return
-                  </Button>
-                </Link>
-              </div>
-            ) : (
-              <div className="space-y-1">
-                {recentReturns.map((ret) => (
-                  <RecentReturnRow key={ret.id} request={ret} />
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="border border-border">
-          <CardContent className="p-5">
-            <h2 className="font-semibold text-base mb-4" data-testid="text-quick-actions">Quick Actions</h2>
-            <div className="space-y-2.5">
-              <Link href="/returns/new">
-                <Button
-                  variant="outline"
-                  className="w-full justify-start gap-3 h-12"
-                  data-testid="button-quick-new-return"
-                >
-                  <div className="p-1.5 rounded-md bg-primary/10">
-                    <Plus className="h-4 w-4 text-primary" />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-sm font-medium">New Return</p>
-                    <p className="text-xs text-muted-foreground">File a new return request</p>
-                  </div>
-                </Button>
-              </Link>
-              <Link href="/track">
-                <Button
-                  variant="outline"
-                  className="w-full justify-start gap-3 h-12"
-                  data-testid="button-quick-track"
-                >
-                  <div className="p-1.5 rounded-md bg-blue-500/10">
-                    <Truck className="h-4 w-4 text-blue-600" />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-sm font-medium">Track Return</p>
-                    <p className="text-xs text-muted-foreground">Track by order ID</p>
-                  </div>
-                </Button>
-              </Link>
-              <Link href="/returns">
-                <Button
-                  variant="outline"
-                  className="w-full justify-start gap-3 h-12"
-                  data-testid="button-quick-all-returns"
-                >
-                  <div className="p-1.5 rounded-md bg-green-500/10">
-                    <ShieldCheck className="h-4 w-4 text-green-600" />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-sm font-medium">All Returns</p>
-                    <p className="text-xs text-muted-foreground">View complete history</p>
-                  </div>
-                </Button>
-              </Link>
+              ))}
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
