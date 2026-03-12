@@ -1,8 +1,10 @@
 import { google } from "googleapis";
 import type { Express } from "express";
+import crypto from "crypto";
 import { storage } from "./storage";
 
 const SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"];
+const pendingStates = new Map<string, number>();
 
 function getOAuth2Client(redirectUri: string) {
   return new google.auth.OAuth2(
@@ -91,10 +93,13 @@ export function registerEmailRoutes(app: Express) {
       }
       const redirectUri = getRedirectUri(req);
       const oauth2Client = getOAuth2Client(redirectUri);
+      const state = crypto.randomBytes(32).toString("hex");
+      pendingStates.set(state, Date.now());
       const url = oauth2Client.generateAuthUrl({
         access_type: "offline",
         scope: SCOPES,
         prompt: "consent",
+        state,
       });
       res.json({ url });
     } catch (error: any) {
@@ -105,9 +110,16 @@ export function registerEmailRoutes(app: Express) {
 
   app.get("/api/email/callback", async (req, res) => {
     try {
-      const { code } = req.query;
+      const { code, state } = req.query;
       if (!code || typeof code !== "string") {
         return res.status(400).json({ message: "Authorization code is required" });
+      }
+      if (!state || typeof state !== "string" || !pendingStates.has(state)) {
+        return res.redirect("/?error=invalid_state");
+      }
+      pendingStates.delete(state);
+      for (const [key, ts] of pendingStates) {
+        if (Date.now() - ts > 10 * 60 * 1000) pendingStates.delete(key);
       }
       const redirectUri = getRedirectUri(req);
       const oauth2Client = getOAuth2Client(redirectUri);

@@ -113,4 +113,12 @@ app.use((req, res, next) => {
       log(`serving on port ${port}`);
     },
   );
+
+  const altPort = 3001;
+  if (altPort !== port) {
+    const altServer = createServer(app);
+    altServer.listen({ port: altPort, host: "0.0.0.0" }, () => {
+      log(`also serving on port ${altPort}`);
+    });
+  }
 })();
