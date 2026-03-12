@@ -36,6 +36,14 @@ export const returnReasonEnum = pgEnum("return_reason", [
   "other",
 ]);
 
+export const orderStatusEnum = pgEnum("order_status", [
+  "active",
+  "expiring_soon",
+  "expired",
+  "return_initiated",
+  "returned",
+]);
+
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
@@ -66,6 +74,19 @@ export const statusHistory = pgTable("status_history", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const orders = pgTable("orders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: text("order_id").notNull(),
+  productName: text("product_name").notNull(),
+  platform: text("platform").notNull(),
+  status: orderStatusEnum("status").notNull().default("active"),
+  amount: integer("amount"),
+  orderDate: timestamp("order_date"),
+  returnDeadline: timestamp("return_deadline"),
+  emailSubject: text("email_subject"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -85,9 +106,16 @@ export const insertStatusHistorySchema = createInsertSchema(statusHistory).omit(
   createdAt: true,
 });
 
+export const insertOrderSchema = createInsertSchema(orders).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type ReturnRequest = typeof returnRequests.$inferSelect;
 export type InsertReturnRequest = z.infer<typeof insertReturnRequestSchema>;
 export type StatusHistory = typeof statusHistory.$inferSelect;
 export type InsertStatusHistory = z.infer<typeof insertStatusHistorySchema>;
+export type Order = typeof orders.$inferSelect;
+export type InsertOrder = z.infer<typeof insertOrderSchema>;

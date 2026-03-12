@@ -5,11 +5,14 @@ import {
   type InsertReturnRequest,
   type StatusHistory,
   type InsertStatusHistory,
+  type Order,
+  type InsertOrder,
   users,
   returnRequests,
   statusHistory,
+  orders,
 } from "@shared/schema";
-import { eq, desc, ilike } from "drizzle-orm";
+import { eq, desc, ilike, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 
@@ -26,6 +29,11 @@ export interface IStorage {
 
   getStatusHistory(returnRequestId: string): Promise<StatusHistory[]>;
   addStatusHistory(data: InsertStatusHistory): Promise<StatusHistory>;
+
+  getAllOrders(): Promise<Order[]>;
+  createOrder(data: InsertOrder): Promise<Order>;
+  getOrderByOrderId(orderId: string): Promise<Order | undefined>;
+  getOrderStats(): Promise<{ total: number; active: number; expiring_soon: number; expired: number; returned: number }>;
 }
 
 const pool = new pg.Pool({
@@ -96,6 +104,50 @@ export class DatabaseStorage implements IStorage {
   async addStatusHistory(data: InsertStatusHistory): Promise<StatusHistory> {
     const [entry] = await db.insert(statusHistory).values(data).returning();
     return entry;
+  }
+
+  async getAllOrders(): Promise<Order[]> {
+    return db.select().from(orders).orderBy(desc(orders.createdAt));
+  }
+
+  async createOrder(data: InsertOrder): Promise<Order> {
+    const [order] = await db.insert(orders).values(data).returning();
+    return order;
+  }
+
+  async getOrderByOrderId(orderId: string): Promise<Order | undefined> {
+    const [order] = await db.select().from(orders).where(eq(orders.orderId, orderId));
+    return order;
+  }
+
+  async getOrderStats(): Promise<{ total: number; active: number; expiring_soon: number; expired: number; returned: number }> {
+    const allOrders = await this.getAllOrders();
+    const now = new Date();
+    const twoDaysFromNow = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+
+    let active = 0;
+    let expiring_soon = 0;
+    let expired = 0;
+    let returned = 0;
+
+    for (const order of allOrders) {
+      if (order.status === "returned" || order.status === "return_initiated") {
+        returned++;
+      } else if (order.returnDeadline) {
+        const deadline = new Date(order.returnDeadline);
+        if (deadline < now) {
+          expired++;
+        } else if (deadline < twoDaysFromNow) {
+          expiring_soon++;
+        } else {
+          active++;
+        }
+      } else {
+        active++;
+      }
+    }
+
+    return { total: allOrders.length, active, expiring_soon, expired, returned };
   }
 }
 

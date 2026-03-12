@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertReturnRequestSchema } from "@shared/schema";
 import { z } from "zod";
+import { registerEmailRoutes } from "./email";
 
 const updateStatusSchema = z.object({
   status: z.enum([
@@ -23,6 +24,7 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  registerEmailRoutes(app);
   app.get("/api/returns", async (_req, res) => {
     try {
       const returns = await storage.getAllReturns();
