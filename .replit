@@ -9,6 +9,17 @@ channel = "stable-24_05"
 PYTHONPATH = "${REPL_HOME}"
 
 [deployment]
-# .venv already exists with all deps installed. Just run directly.
-# No pip needed — avoids Nix immutable store error.
-run = [".venv/bin/python", "backend/main.py"]
+# Use pip install with --target to write to a writable dir, bypassing Nix immutable store
+run = ["sh", "-c", "pip install --target=/tmp/deps -r backend/requirements.txt -q && PYTHONPATH=/tmp/deps:$PYTHONPATH python backend/main.py"]
+
+[[ports]]
+localPort = 3001
+externalPort = 3001
+
+[[ports]]
+localPort = 5000
+externalPort = 5000
+
+[[ports]]
+localPort = 8000
+externalPort = 80
