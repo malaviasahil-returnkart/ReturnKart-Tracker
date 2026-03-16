@@ -1,0 +1,169 @@
+{
+  "email_drafting_system": {
+    "description": "AI-powered escalation email drafting system for Returnkart. Generates professional return/refund complaint emails based on order context and issue type.",
+    
+    "escalation_levels": [
+      {
+        "level": 1,
+        "name": "Initial Return Request",
+        "description": "Polite first request to initiate return or report issue",
+        "tone": "polite_professional",
+        "when_to_use": "First contact. Return window is still open. No prior complaint."
+      },
+      {
+        "level": 2,
+        "name": "Follow-Up Escalation",
+        "description": "Firmer follow-up when initial request was ignored or denied unfairly",
+        "tone": "firm_assertive",
+        "when_to_use": "No response within 48 hours, or return request rejected without valid reason."
+      },
+      {
+        "level": 3,
+        "name": "Senior Escalation / Grievance",
+        "description": "Formal escalation to senior management or grievance officer",
+        "tone": "formal_legal",
+        "when_to_use": "Multiple ignored requests, consumer rights violation, or significant financial loss."
+      },
+      {
+        "level": 4,
+        "name": "Consumer Forum / Legal Notice",
+        "description": "Final notice before filing complaint with Consumer Forum or CCPA",
+        "tone": "legal_notice",
+        "when_to_use": "All internal escalations exhausted. Ready to file legal complaint."
+      }
+    ],
+
+    "issue_types": [
+      {
+        "issue_id": "damaged_product",
+        "display_name": "Received Damaged Product",
+        "description": "Product arrived physically damaged, broken, or non-functional",
+        "evidence_needed": ["Unboxing video", "Photos of damage", "Photos of packaging"],
+        "consumer_right_reference": "Consumer Protection Act 2019 - Section 2(6): Deficiency in service"
+      },
+      {
+        "issue_id": "wrong_product",
+        "display_name": "Received Wrong Product",
+        "description": "Product received is different from what was ordered",
+        "evidence_needed": ["Photos of received product vs ordered product", "Order confirmation screenshot"],
+        "consumer_right_reference": "Consumer Protection Act 2019 - Section 2(6): Deficiency in service; Section 2(28): Misleading advertisement if listing was incorrect"
+      },
+      {
+        "issue_id": "refund_delayed",
+        "display_name": "Refund Not Received",
+        "description": "Return was picked up but refund hasn't been processed within promised timeline",
+        "evidence_needed": ["Return pickup receipt", "Tracking showing item received by seller", "Bank statement showing no refund"],
+        "consumer_right_reference": "Consumer Protection Act 2019 - Section 2(6): Deficiency in service; RBI guidelines on refund timelines"
+      },
+      {
+        "issue_id": "ghost_delivery",
+        "display_name": "False Delivery Claim (Ghost Delivery)",
+        "description": "Courier marked as delivered but customer never received the package",
+        "evidence_needed": ["GPS location proof at delivery time", "CCTV footage if available", "Neighbor testimony"],
+        "consumer_right_reference": "Consumer Protection Act 2019 - Section 2(6): Deficiency in service; IPC Section 420: Cheating"
+      },
+      {
+        "issue_id": "return_rejected",
+        "display_name": "Return Request Unfairly Rejected",
+        "description": "Platform rejected a valid return request within the return window",
+        "evidence_needed": ["Return request screenshot", "Product condition photos", "Return policy screenshot showing eligibility"],
+        "consumer_right_reference": "Consumer Protection Act 2019 - Section 2(6): Deficiency in service; E-commerce Rules 2020"
+      },
+      {
+        "issue_id": "pickup_not_scheduled",
+        "display_name": "Return Pickup Not Scheduled",
+        "description": "Return approved but no pickup has been arranged within promised time",
+        "evidence_needed": ["Return approval screenshot", "Proof that pickup window has passed"],
+        "consumer_right_reference": "Consumer Protection Act 2019 - Section 2(6): Deficiency in service"
+      },
+      {
+        "issue_id": "partial_refund",
+        "display_name": "Partial Refund / Incorrect Amount",
+        "description": "Refund amount is less than what was paid for the product",
+        "evidence_needed": ["Original payment receipt", "Refund receipt showing less amount", "Return policy showing full refund eligibility"],
+        "consumer_right_reference": "Consumer Protection Act 2019 - Section 2(6): Deficiency in service"
+      },
+      {
+        "issue_id": "quality_issue",
+        "display_name": "Product Quality Does Not Match Listing",
+        "description": "Product received is of significantly lower quality than advertised",
+        "evidence_needed": ["Product listing screenshot", "Photos of actual product", "Comparison shots"],
+        "consumer_right_reference": "Consumer Protection Act 2019 - Section 2(28): Misleading advertisement; Section 2(47): Unfair trade practice"
+      },
+      {
+        "issue_id": "expired_window_dispute",
+        "display_name": "Return Window Expired Due to Platform Delay",
+        "description": "Return window expired because the platform took too long to respond to initial complaint",
+        "evidence_needed": ["Original complaint timestamp", "Platform response timeline", "Proof of delayed response"],
+        "consumer_right_reference": "Consumer Protection Act 2019 - Section 2(6): Deficiency in service; Platform's own SLA violation"
+      }
+    ],
+
+    "email_templates": {
+      "level_1": {
+        "subject_template": "Return/Refund Request - Order #{order_id} - {item_name}",
+        "body_template": "Dear {platform_name} Customer Support,\n\nI am writing to request a {return_type} for the following order:\n\nOrder ID: {order_id}\nProduct: {item_name}\nOrder Date: {order_date}\nDelivery Date: {delivery_date}\nAmount Paid: ₹{amount}\n\nIssue: {issue_description}\n\n{evidence_section}\n\nAs per your stated return policy, this product falls under the {category} category with a {return_window_days}-day return window. My return window is valid until {expiry_date}, and I am raising this request well within the stipulated period.\n\nI kindly request you to:\n1. Approve my return request\n2. Schedule a pickup at my convenience\n3. Process my {refund_type} within your stated timeline of {refund_timeline_days} business days\n\nPlease acknowledge this request within 24 hours.\n\nThank you for your prompt attention.\n\nRegards,\n{user_name}\n{user_email}\n{user_phone}"
+      },
+      "level_2": {
+        "subject_template": "URGENT: Follow-Up on Unresolved Return - Order #{order_id}",
+        "body_template": "Dear {platform_name} Customer Support,\n\nThis is a follow-up to my previous return/refund request submitted on {original_complaint_date} regarding:\n\nOrder ID: {order_id}\nProduct: {item_name}\nAmount: ₹{amount}\nIssue: {issue_description}\n\nIt has been {days_since_complaint} days since my initial request, and I have not received a satisfactory resolution. {previous_response_summary}\n\nI would like to bring to your attention that:\n- My return request is within the valid {return_window_days}-day window (expires {expiry_date})\n- I have provided all necessary evidence as requested\n- Your platform's own policy guarantees resolution within {platform_sla} hours\n\nI am now requesting immediate escalation of this matter to a senior customer service representative. If this is not resolved within the next 48 hours, I will be compelled to:\n1. File a formal complaint with the Consumer Helpline (1800-11-4000)\n2. Report this on the National Consumer Helpline portal\n3. Share my experience on public review platforms\n\nI trust this will be resolved promptly.\n\nRegards,\n{user_name}\nOrder ID: {order_id}\nRegistered Email: {user_email}\nContact: {user_phone}"
+      },
+      "level_3": {
+        "subject_template": "FORMAL GRIEVANCE: Unresolved Consumer Complaint - Order #{order_id} - Escalation to Grievance Officer",
+        "body_template": "To,\nThe Grievance Officer\n{platform_legal_name}\n{platform_address}\n\nSubject: Formal Grievance Under Consumer Protection Act, 2019 and E-Commerce Rules, 2020\n\nDear Sir/Madam,\n\nI am writing to formally escalate a consumer grievance that remains unresolved despite multiple attempts at resolution through your customer support channels.\n\nCOMPLAINT DETAILS:\n- Order ID: {order_id}\n- Product: {item_name}\n- Category: {category}\n- Amount Paid: ₹{amount}\n- Order Date: {order_date}\n- Delivery Date: {delivery_date}\n- Issue: {issue_description}\n\nTIMELINE OF COMPLAINT:\n{complaint_timeline}\n\nDespite the above communications, my complaint remains unresolved. This constitutes a deficiency in service under Section 2(6) of the Consumer Protection Act, 2019.\n\nFurthermore, as per the Consumer Protection (E-Commerce) Rules, 2020:\n- Rule 4(4): Every e-commerce entity shall establish an adequate grievance redressal mechanism\n- Rule 4(5): The grievance officer shall acknowledge receipt of consumer complaint within 48 hours and resolve it within one month\n\nI hereby demand:\n1. Immediate {return_type} of ₹{amount}\n2. Compensation for the mental agony and inconvenience caused\n3. Written acknowledgment of this grievance within 48 hours as mandated by law\n\nIf this matter is not resolved within 15 days of receipt of this communication, I shall be compelled to file a formal complaint with:\n- National Consumer Disputes Redressal Commission (NCDRC)\n- Central Consumer Protection Authority (CCPA)\n- Department of Consumer Affairs\n\n{evidence_section}\n\nRegards,\n{user_name}\n{user_address}\nEmail: {user_email}\nPhone: {user_phone}\nDate: {current_date}"
+      },
+      "level_4": {
+        "subject_template": "LEGAL NOTICE: Violation of Consumer Rights - Order #{order_id} - Final Notice Before Legal Action",
+        "body_template": "LEGAL NOTICE\n\nTo,\n{platform_legal_name}\nRegistered Office: {platform_address}\n\nFrom,\n{user_name}\n{user_address}\n\nDate: {current_date}\n\nSubject: Legal Notice under Consumer Protection Act, 2019 for Deficiency in Service and Unfair Trade Practice\n\nDear Sir/Madam,\n\nUnder instructions from my client / I, the undersigned, do hereby issue this legal notice upon you as follows:\n\n1. FACTS OF THE CASE:\n   My client / I placed an order bearing Order ID {order_id} on your platform on {order_date} for \"{item_name}\" amounting to ₹{amount}.\n\n2. ISSUE:\n   {detailed_issue_description}\n\n3. FAILED ATTEMPTS AT RESOLUTION:\n   {complaint_timeline}\n\n4. LEGAL PROVISIONS VIOLATED:\n   a) Consumer Protection Act, 2019 - Section 2(6): Deficiency in Service\n   b) Consumer Protection Act, 2019 - Section 2(47): Unfair Trade Practice\n   c) Consumer Protection (E-Commerce) Rules, 2020 - Rule 4(4) and 4(5)\n   d) {additional_legal_reference}\n\n5. DEMAND:\n   I hereby demand that you:\n   a) Process the complete {return_type} of ₹{amount} within 7 days\n   b) Pay compensation of ₹{compensation_amount} for mental agony, inconvenience, and harassment\n   c) Pay the cost of this legal notice\n\n6. CONSEQUENCE OF NON-COMPLIANCE:\n   If the above demands are not met within 15 days of receipt of this notice, I shall be constrained to initiate legal proceedings before the appropriate Consumer Disputes Redressal Forum/Commission, where you shall be liable for:\n   - Refund of the full amount\n   - Compensation for mental agony and harassment\n   - Cost of litigation\n   - Any other relief the Hon'ble Forum/Commission deems fit\n\nYou are hereby called upon to comply with the above demands to avoid further legal consequences.\n\n{user_name}\n{user_address}\nDate: {current_date}"
+      }
+    },
+
+    "gemini_drafting_prompt": "You are a consumer rights email drafting assistant for Returnkart, an Indian e-commerce return tracking app.\n\nGiven the following order context and issue details, draft a professional escalation email.\n\nRULES:\n1. Use the appropriate escalation level template as a base\n2. Personalize with actual order details, dates, and amounts\n3. Reference the correct return policy for the platform and category\n4. Include relevant sections of Consumer Protection Act 2019 and E-Commerce Rules 2020\n5. Be factual and professional - no emotional language\n6. Include a clear timeline of events if this is a follow-up\n7. Always include evidence references if available\n8. Calculate and include the correct return window expiry date\n9. Use Indian English spelling and conventions\n10. Keep the tone appropriate to the escalation level\n\nINPUT FORMAT:\n```json\n{\n  \"escalation_level\": 1-4,\n  \"order_id\": \"string\",\n  \"platform\": \"string\",\n  \"item_name\": \"string\",\n  \"category\": \"string\",\n  \"amount\": number,\n  \"order_date\": \"YYYY-MM-DD\",\n  \"delivery_date\": \"YYYY-MM-DD\",\n  \"issue_type\": \"damaged_product | wrong_product | refund_delayed | ghost_delivery | return_rejected | pickup_not_scheduled | partial_refund | quality_issue | expired_window_dispute\",\n  \"issue_description\": \"string\",\n  \"evidence_available\": [\"list of evidence types\"],\n  \"previous_complaints\": [{\"date\": \"YYYY-MM-DD\", \"channel\": \"string\", \"response\": \"string\"}],\n  \"user_name\": \"string\",\n  \"user_email\": \"string\",\n  \"user_phone\": \"string\"\n}\n```\n\nOUTPUT: Return the complete email with subject line and body, ready to send.",
+
+    "platform_legal_details": {
+      "amazon_in": {
+        "legal_name": "Amazon Seller Services Private Limited",
+        "address": "Brigade Gateway, 8th Floor, 26/1, Dr. Rajkumar Road, Malleshwaram(W), Bangalore - 560055, Karnataka, India",
+        "grievance_officer_email": "grievance-officer@amazon.in",
+        "nodal_officer_email": "npo@amazon.in"
+      },
+      "flipkart": {
+        "legal_name": "Flipkart Internet Private Limited",
+        "address": "Buildings Alyssa, Begonia and Clover, Embassy Tech Village, Outer Ring Road, Devarabeesanahalli Village, Bengaluru - 560103, Karnataka, India",
+        "grievance_officer_email": "cs@flipkart.com",
+        "nodal_officer_email": "cs@flipkart.com"
+      },
+      "myntra": {
+        "legal_name": "Myntra Designs Private Limited",
+        "address": "Buildings Alyssa, Begonia and Clover, Embassy Tech Village, Outer Ring Road, Devarabeesanahalli Village, Bengaluru - 560103, Karnataka, India",
+        "grievance_officer_email": "grievanceofficer@myntra.com",
+        "nodal_officer_email": "grievanceofficer@myntra.com"
+      },
+      "meesho": {
+        "legal_name": "Fashnear Technologies Private Limited",
+        "address": "3rd Floor, Wing-E, Helios Business Park, Kadubeesanahalli Village, Varthur Hobli, Outer Ring Road, Bengaluru - 560103, Karnataka, India",
+        "grievance_officer_email": "grievanceofficer@meesho.com",
+        "nodal_officer_email": "grievanceofficer@meesho.com"
+      },
+      "ajio": {
+        "legal_name": "Reliance Retail Limited",
+        "address": "3rd Floor, Court House, Lokmanya Tilak Marg, Dhobi Talao, Mumbai - 400002, Maharashtra, India",
+        "grievance_officer_email": "customercare@ajio.com",
+        "nodal_officer_email": "customercare@ajio.com"
+      }
+    },
+
+    "consumer_forum_info": {
+      "national_helpline": "1800-11-4000",
+      "online_portal": "https://consumerhelpline.gov.in",
+      "ingram_portal": "https://edaakhil.nic.in",
+      "ccpa_email": "ccpa-roc@nic.in",
+      "filing_fee": {
+        "up_to_5_lakh": "Free (District Forum)",
+        "5_lakh_to_20_lakh": "₹200 (District Forum)",
+        "20_lakh_to_1_crore": "₹400 (State Commission)",
+        "above_1_crore": "₹5000 (National Commission)"
+      }
+    }
+  }
+}

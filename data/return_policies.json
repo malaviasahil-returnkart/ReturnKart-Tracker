@@ -1,0 +1,743 @@
+[
+  {
+    "platform": "Amazon India",
+    "platform_slug": "amazon_in",
+    "logo_url": "https://logo.clearbit.com/amazon.in",
+    "support_url": "https://www.amazon.in/gp/help/customer/display.html?nodeId=202111910",
+    "support_email": null,
+    "support_phone": "1800-111-0009",
+    "escalation_email": "jeff@amazon.com",
+    "categories": [
+      {
+        "category": "Fashion & Apparel",
+        "return_window_days": 10,
+        "return_type": "refund_or_replacement",
+        "is_replacement_only": false,
+        "conditions": [
+          "Product must be unused with original tags attached",
+          "Original packaging must be intact",
+          "Items must not be altered or washed"
+        ],
+        "non_returnable_exceptions": [
+          "Innerwear",
+          "Lingerie",
+          "Swimwear",
+          "Socks",
+          "Freebies and trial products"
+        ],
+        "refund_method": "Original payment method or Amazon Pay balance",
+        "refund_timeline_days": 7
+      },
+      {
+        "category": "Electronics & Accessories",
+        "return_window_days": 7,
+        "return_type": "replacement_only",
+        "is_replacement_only": true,
+        "conditions": [
+          "Product must be in original condition with all accessories",
+          "Serial number must match",
+          "Product must not be physically damaged by customer",
+          "Some brands require authorized service center verification"
+        ],
+        "non_returnable_exceptions": [
+          "Software and digital downloads",
+          "Memory cards if opened",
+          "Headphones/earphones if opened (hygiene)"
+        ],
+        "refund_method": "Replacement unit or Amazon Pay balance",
+        "refund_timeline_days": 10
+      },
+      {
+        "category": "Mobile Phones",
+        "return_window_days": 7,
+        "return_type": "replacement_only",
+        "is_replacement_only": true,
+        "conditions": [
+          "Product must be in original condition with all accessories and box",
+          "IMEI number must match",
+          "Device must not be activated on carrier networks for extended use",
+          "Screen protector and back cover must not be applied by customer"
+        ],
+        "non_returnable_exceptions": [
+          "Physical damage by customer",
+          "Devices with unauthorized modifications"
+        ],
+        "refund_method": "Replacement unit",
+        "refund_timeline_days": 10
+      },
+      {
+        "category": "Large Appliances",
+        "return_window_days": 10,
+        "return_type": "replacement_only",
+        "is_replacement_only": true,
+        "conditions": [
+          "Product must be in original condition",
+          "Installation must not have been completed",
+          "All accessories and packaging must be intact",
+          "Defective items may need engineer visit for verification"
+        ],
+        "non_returnable_exceptions": [
+          "Items with completed installation",
+          "Products with physical damage post-installation"
+        ],
+        "refund_method": "Replacement unit",
+        "refund_timeline_days": 14
+      },
+      {
+        "category": "Books",
+        "return_window_days": 10,
+        "return_type": "refund_or_replacement",
+        "is_replacement_only": false,
+        "conditions": [
+          "Book must be in original condition",
+          "No highlighting, marking, or writing inside"
+        ],
+        "non_returnable_exceptions": [
+          "eBooks and Kindle editions",
+          "Audible audiobooks"
+        ],
+        "refund_method": "Original payment method or Amazon Pay balance",
+        "refund_timeline_days": 7
+      },
+      {
+        "category": "Home & Kitchen",
+        "return_window_days": 10,
+        "return_type": "refund_or_replacement",
+        "is_replacement_only": false,
+        "conditions": [
+          "Product must be unused and in original packaging",
+          "All accessories and manuals must be included"
+        ],
+        "non_returnable_exceptions": [
+          "Grocery and gourmet food items",
+          "Pet food (opened)",
+          "Plants and seeds"
+        ],
+        "refund_method": "Original payment method or Amazon Pay balance",
+        "refund_timeline_days": 7
+      },
+      {
+        "category": "Amazon Devices (Kindle, Echo, Fire TV)",
+        "return_window_days": 10,
+        "return_type": "refund",
+        "is_replacement_only": false,
+        "conditions": [
+          "Device must be erased of all personal information",
+          "Original packaging required but can be opened",
+          "All accessories must be included"
+        ],
+        "non_returnable_exceptions": [],
+        "refund_method": "Full refund to original payment method",
+        "refund_timeline_days": 7
+      },
+      {
+        "category": "Furniture",
+        "return_window_days": 10,
+        "return_type": "refund_or_replacement",
+        "is_replacement_only": false,
+        "conditions": [
+          "Product must be unassembled or in original condition",
+          "Packaging must be intact"
+        ],
+        "non_returnable_exceptions": [
+          "Assembled furniture",
+          "Customized or made-to-order items"
+        ],
+        "refund_method": "Original payment method",
+        "refund_timeline_days": 10
+      }
+    ],
+    "general_rules": {
+      "pickup_method": "Doorstep pickup (most areas) or self-ship",
+      "pickup_timeline": "Scheduled within 24-48 hours of return request",
+      "damaged_on_delivery": "Report within 5 days of delivery",
+      "refund_processing_after_pickup": "Within 13 days of successful pickup",
+      "cod_refund_method": "NEFT to bank account or Amazon Pay balance",
+      "a_to_z_guarantee": "File claim if seller doesn't respond within 3 business days",
+      "cancellation_policy": "Free cancellation before shipping; may incur charges after",
+      "open_box_delivery": "Not available on Amazon India"
+    }
+  },
+  {
+    "platform": "Flipkart",
+    "platform_slug": "flipkart",
+    "logo_url": "https://logo.clearbit.com/flipkart.com",
+    "support_url": "https://www.flipkart.com/pages/returnpolicy",
+    "support_email": null,
+    "support_phone": "1800-208-9898",
+    "escalation_email": "cs@flipkart.com",
+    "categories": [
+      {
+        "category": "Fashion & Lifestyle",
+        "return_window_days": 10,
+        "return_type": "refund_or_exchange",
+        "is_replacement_only": false,
+        "conditions": [
+          "Products must be unused with original tags and packaging",
+          "Items must not be washed, altered, or worn",
+          "Price tags must be attached"
+        ],
+        "non_returnable_exceptions": [
+          "Innerwear and swimwear",
+          "Lingerie and hosiery",
+          "Customized products"
+        ],
+        "refund_method": "Original payment method or Flipkart Gift Card",
+        "refund_timeline_days": 7
+      },
+      {
+        "category": "Electronics & Mobile Phones",
+        "return_window_days": 7,
+        "return_type": "replacement_only",
+        "is_replacement_only": true,
+        "conditions": [
+          "Product must be in original condition with all accessories",
+          "Original packaging and box required",
+          "Some brands may require authorized service center visit",
+          "IMEI/Serial must match for mobile phones"
+        ],
+        "non_returnable_exceptions": [
+          "Opened memory cards and pen drives",
+          "Software and digital products",
+          "Used batteries"
+        ],
+        "refund_method": "Replacement unit only",
+        "refund_timeline_days": 10
+      },
+      {
+        "category": "Large Appliances",
+        "return_window_days": 10,
+        "return_type": "replacement_only",
+        "is_replacement_only": true,
+        "conditions": [
+          "Product must be unused and in original condition",
+          "All original accessories and packaging required",
+          "May require engineer visit for verification",
+          "Installation must not be completed"
+        ],
+        "non_returnable_exceptions": [
+          "Products installed and used",
+          "Physical damage post-delivery"
+        ],
+        "refund_method": "Replacement unit",
+        "refund_timeline_days": 14
+      },
+      {
+        "category": "Furniture",
+        "return_window_days": 10,
+        "return_type": "replacement_only",
+        "is_replacement_only": true,
+        "conditions": [
+          "Product must be unused and in original packaging",
+          "Assembly must not have been started"
+        ],
+        "non_returnable_exceptions": [
+          "Assembled furniture",
+          "Custom or made-to-order items"
+        ],
+        "refund_method": "Replacement unit",
+        "refund_timeline_days": 14
+      },
+      {
+        "category": "Winterwear",
+        "return_window_days": 3,
+        "return_type": "refund_or_exchange",
+        "is_replacement_only": false,
+        "conditions": [
+          "Items must be unused, undamaged, with original tags",
+          "Packaging must be intact"
+        ],
+        "non_returnable_exceptions": [],
+        "refund_method": "Original payment method or Flipkart Gift Card",
+        "refund_timeline_days": 7
+      },
+      {
+        "category": "Home & Kitchen",
+        "return_window_days": 7,
+        "return_type": "refund_or_replacement",
+        "is_replacement_only": false,
+        "conditions": [
+          "Product must be unused and in original packaging"
+        ],
+        "non_returnable_exceptions": [
+          "Perishable goods",
+          "Hygiene products if opened",
+          "Grocery items"
+        ],
+        "refund_method": "Original payment method or Flipkart Gift Card",
+        "refund_timeline_days": 7
+      }
+    ],
+    "general_rules": {
+      "pickup_method": "Doorstep pickup or Flipkart drop-off points",
+      "pickup_timeline": "Within 24-48 hours of approved return",
+      "damaged_on_delivery": "Report within 5 days of delivery for case-by-case review",
+      "refund_processing_after_pickup": "3-7 business days after item received and inspected",
+      "cod_refund_method": "Bank account (NEFT) or Flipkart Gift Card",
+      "cancellation_policy": "Free cancellation within 24hrs; fee of Rs.20-499 after; cannot cancel once out for delivery",
+      "open_box_delivery": "Available for high-value electronics; inspect before accepting"
+    }
+  },
+  {
+    "platform": "Myntra",
+    "platform_slug": "myntra",
+    "logo_url": "https://logo.clearbit.com/myntra.com",
+    "support_url": "https://www.myntra.com/faqs",
+    "support_email": null,
+    "support_phone": "080-46100000",
+    "escalation_email": null,
+    "categories": [
+      {
+        "category": "Fashion & Apparel",
+        "return_window_days": 30,
+        "return_type": "refund_or_exchange",
+        "is_replacement_only": false,
+        "conditions": [
+          "Product must be unused with all original tags",
+          "Items must not be washed or altered",
+          "Original packaging preferred",
+          "Trial is allowed but product should be in sellable condition"
+        ],
+        "non_returnable_exceptions": [
+          "Innerwear and lingerie",
+          "Swimwear",
+          "Jewellery (precious)",
+          "Perfumes and fragrances if opened",
+          "Customized products"
+        ],
+        "refund_method": "Original payment method or Myntra Credit",
+        "refund_timeline_days": 7
+      },
+      {
+        "category": "Footwear",
+        "return_window_days": 30,
+        "return_type": "refund_or_exchange",
+        "is_replacement_only": false,
+        "conditions": [
+          "Must be unworn and in original condition",
+          "Original shoe box required",
+          "Tags must be attached"
+        ],
+        "non_returnable_exceptions": [],
+        "refund_method": "Original payment method or Myntra Credit",
+        "refund_timeline_days": 7
+      },
+      {
+        "category": "Accessories & Bags",
+        "return_window_days": 30,
+        "return_type": "refund_or_exchange",
+        "is_replacement_only": false,
+        "conditions": [
+          "Must be unused and in original packaging",
+          "All tags and labels must be intact"
+        ],
+        "non_returnable_exceptions": [
+          "Sunglasses if seal broken",
+          "Watches with removed protective film"
+        ],
+        "refund_method": "Original payment method or Myntra Credit",
+        "refund_timeline_days": 7
+      },
+      {
+        "category": "Beauty & Personal Care",
+        "return_window_days": 15,
+        "return_type": "refund",
+        "is_replacement_only": false,
+        "conditions": [
+          "Product must be sealed and unopened",
+          "Original packaging required"
+        ],
+        "non_returnable_exceptions": [
+          "Opened beauty products",
+          "Used skincare items"
+        ],
+        "refund_method": "Original payment method or Myntra Credit",
+        "refund_timeline_days": 7
+      },
+      {
+        "category": "Home & Living",
+        "return_window_days": 15,
+        "return_type": "refund_or_exchange",
+        "is_replacement_only": false,
+        "conditions": [
+          "Product must be unused and in original condition",
+          "All packaging and accessories included"
+        ],
+        "non_returnable_exceptions": [],
+        "refund_method": "Original payment method or Myntra Credit",
+        "refund_timeline_days": 7
+      }
+    ],
+    "general_rules": {
+      "pickup_method": "Doorstep pickup or self-ship via courier",
+      "pickup_timeline": "Pickup scheduled within 24-48 hours",
+      "damaged_on_delivery": "Report immediately; keep photographic evidence",
+      "refund_processing_after_pickup": "5-7 business days after pickup",
+      "cod_refund_method": "Bank transfer or Myntra Credit",
+      "cancellation_policy": "Free cancellation before shipment",
+      "open_box_delivery": "Not available"
+    }
+  },
+  {
+    "platform": "Meesho",
+    "platform_slug": "meesho",
+    "logo_url": "https://logo.clearbit.com/meesho.com",
+    "support_url": "https://www.meesho.com/legal/returns",
+    "support_email": "help@meesho.com",
+    "support_phone": "080-61799600",
+    "escalation_email": "grievanceofficer@meesho.com",
+    "categories": [
+      {
+        "category": "Fashion & Clothing",
+        "return_window_days": 7,
+        "return_type": "refund_or_exchange",
+        "is_replacement_only": false,
+        "conditions": [
+          "Product must be unused with all original tags",
+          "Original packaging must be intact",
+          "Item must not be washed or altered"
+        ],
+        "non_returnable_exceptions": [
+          "Innerwear",
+          "Personal care products",
+          "Customized items"
+        ],
+        "refund_method": "Original payment method; COD via Meesho Wallet",
+        "refund_timeline_days": 7
+      },
+      {
+        "category": "Home Decor & Kitchen",
+        "return_window_days": 7,
+        "return_type": "refund_or_exchange",
+        "is_replacement_only": false,
+        "conditions": [
+          "Product must be unused and in original packaging",
+          "All accessories included"
+        ],
+        "non_returnable_exceptions": [
+          "Perishable items",
+          "Stickers and wall decals if applied"
+        ],
+        "refund_method": "Original payment method; COD via Meesho Wallet",
+        "refund_timeline_days": 7
+      },
+      {
+        "category": "Electronics & Gadgets",
+        "return_window_days": 7,
+        "return_type": "replacement_only",
+        "is_replacement_only": true,
+        "conditions": [
+          "Product must be in original condition with all accessories",
+          "Serial number must match",
+          "Must be defective or damaged on arrival"
+        ],
+        "non_returnable_exceptions": [
+          "Physical damage by customer",
+          "Opened sealed electronics"
+        ],
+        "refund_method": "Replacement unit or Meesho Wallet",
+        "refund_timeline_days": 10
+      },
+      {
+        "category": "Footwear & Bags",
+        "return_window_days": 7,
+        "return_type": "refund_or_exchange",
+        "is_replacement_only": false,
+        "conditions": [
+          "Must be unworn and in original condition",
+          "Original packaging required"
+        ],
+        "non_returnable_exceptions": [],
+        "refund_method": "Original payment method; COD via Meesho Wallet",
+        "refund_timeline_days": 7
+      }
+    ],
+    "general_rules": {
+      "pickup_method": "Free doorstep pickup by Meesho logistics",
+      "pickup_timeline": "Within 2-3 business days of approved return",
+      "damaged_on_delivery": "Report immediately with photos; raise return request",
+      "refund_processing_after_pickup": "4-7 business days after pickup and verification",
+      "cod_refund_method": "Meesho Wallet balance (can be used for future purchases or transferred to bank)",
+      "cancellation_policy": "Free cancellation before shipment; no cancellation once shipped",
+      "open_box_delivery": "Not available"
+    }
+  },
+  {
+    "platform": "AJIO",
+    "platform_slug": "ajio",
+    "logo_url": "https://logo.clearbit.com/ajio.com",
+    "support_url": "https://www.ajio.com/return-refund-policy",
+    "support_email": "customercare@ajio.com",
+    "support_phone": "1800-889-9991",
+    "escalation_email": "customercare@ajio.com",
+    "categories": [
+      {
+        "category": "Fashion & Apparel",
+        "return_window_days": 15,
+        "return_type": "refund_or_exchange",
+        "is_replacement_only": false,
+        "conditions": [
+          "Product must be unused with original tags",
+          "Must not be washed, altered, or ironed",
+          "Original packaging and invoice required"
+        ],
+        "non_returnable_exceptions": [
+          "Innerwear and swimwear",
+          "Jewellery",
+          "Customized products",
+          "Gift cards"
+        ],
+        "refund_method": "AJIO Wallet or original payment method",
+        "refund_timeline_days": 7
+      },
+      {
+        "category": "Footwear",
+        "return_window_days": 15,
+        "return_type": "refund_or_exchange",
+        "is_replacement_only": false,
+        "conditions": [
+          "Must be unworn with original box",
+          "All tags intact"
+        ],
+        "non_returnable_exceptions": [],
+        "refund_method": "AJIO Wallet or original payment method",
+        "refund_timeline_days": 7
+      },
+      {
+        "category": "Accessories",
+        "return_window_days": 15,
+        "return_type": "refund",
+        "is_replacement_only": false,
+        "conditions": [
+          "Must be unused and in original condition",
+          "Packaging intact"
+        ],
+        "non_returnable_exceptions": [
+          "Fragrances if opened",
+          "Beauty products if opened"
+        ],
+        "refund_method": "AJIO Wallet or original payment method",
+        "refund_timeline_days": 7
+      }
+    ],
+    "general_rules": {
+      "pickup_method": "Doorstep pickup",
+      "pickup_timeline": "Within 24-72 hours of return request",
+      "damaged_on_delivery": "Report within 48 hours with photos",
+      "refund_processing_after_pickup": "5-7 business days",
+      "cod_refund_method": "AJIO Wallet or bank transfer",
+      "cancellation_policy": "Free cancellation before dispatch",
+      "open_box_delivery": "Not available"
+    }
+  },
+  {
+    "platform": "Nykaa",
+    "platform_slug": "nykaa",
+    "logo_url": "https://logo.clearbit.com/nykaa.com",
+    "support_url": "https://www.nykaa.com/return-policy",
+    "support_email": "support@nykaa.com",
+    "support_phone": "1800-267-4444",
+    "escalation_email": "support@nykaa.com",
+    "categories": [
+      {
+        "category": "Beauty & Cosmetics",
+        "return_window_days": 15,
+        "return_type": "refund",
+        "is_replacement_only": false,
+        "conditions": [
+          "Product must be sealed and unopened",
+          "Original packaging required",
+          "Product must be unused"
+        ],
+        "non_returnable_exceptions": [
+          "Opened beauty products",
+          "Used makeup items",
+          "Products with broken seals",
+          "Intimate care products"
+        ],
+        "refund_method": "Nykaa Store Credit or original payment method",
+        "refund_timeline_days": 7
+      },
+      {
+        "category": "Fashion (Nykaa Fashion)",
+        "return_window_days": 15,
+        "return_type": "refund_or_exchange",
+        "is_replacement_only": false,
+        "conditions": [
+          "Product must be unused with original tags",
+          "Not washed or altered"
+        ],
+        "non_returnable_exceptions": [
+          "Lingerie and innerwear",
+          "Swimwear"
+        ],
+        "refund_method": "Original payment method or Nykaa Store Credit",
+        "refund_timeline_days": 7
+      }
+    ],
+    "general_rules": {
+      "pickup_method": "Doorstep pickup in supported areas",
+      "pickup_timeline": "Within 48-72 hours",
+      "damaged_on_delivery": "Report within 48 hours with unboxing photos/video",
+      "refund_processing_after_pickup": "7-10 business days",
+      "cod_refund_method": "Nykaa Store Credit",
+      "cancellation_policy": "Free cancellation before shipment",
+      "open_box_delivery": "Not available"
+    }
+  },
+  {
+    "platform": "Tata CLiQ",
+    "platform_slug": "tatacliq",
+    "logo_url": "https://logo.clearbit.com/tatacliq.com",
+    "support_url": "https://www.tatacliq.com/return-refund-policy",
+    "support_email": "customercare@tatacliq.com",
+    "support_phone": "1860-267-4444",
+    "escalation_email": "customercare@tatacliq.com",
+    "categories": [
+      {
+        "category": "Fashion & Apparel",
+        "return_window_days": 30,
+        "return_type": "refund_or_exchange",
+        "is_replacement_only": false,
+        "conditions": [
+          "Product must be unused with original tags",
+          "Original packaging required",
+          "Invoice must be included"
+        ],
+        "non_returnable_exceptions": [
+          "Innerwear",
+          "Swimwear",
+          "Customized items"
+        ],
+        "refund_method": "CLiQ Cash or original payment method",
+        "refund_timeline_days": 7
+      },
+      {
+        "category": "Electronics",
+        "return_window_days": 7,
+        "return_type": "replacement_only",
+        "is_replacement_only": true,
+        "conditions": [
+          "Product must be in original condition with all accessories",
+          "Must be manufacturing defect"
+        ],
+        "non_returnable_exceptions": [
+          "Physical damage by customer"
+        ],
+        "refund_method": "Replacement unit",
+        "refund_timeline_days": 10
+      }
+    ],
+    "general_rules": {
+      "pickup_method": "Doorstep pickup or store return (for Tata CLiQ Luxury)",
+      "pickup_timeline": "Within 48 hours",
+      "damaged_on_delivery": "Report within 48 hours",
+      "refund_processing_after_pickup": "5-7 business days",
+      "cod_refund_method": "CLiQ Cash or bank transfer",
+      "cancellation_policy": "Free cancellation before dispatch",
+      "open_box_delivery": "Not available"
+    }
+  },
+  {
+    "platform": "Snapdeal",
+    "platform_slug": "snapdeal",
+    "logo_url": "https://logo.clearbit.com/snapdeal.com",
+    "support_url": "https://www.snapdeal.com/info/return-policy",
+    "support_email": "help@snapdeal.com",
+    "support_phone": "092126-92126",
+    "escalation_email": "help@snapdeal.com",
+    "categories": [
+      {
+        "category": "General Products",
+        "return_window_days": 7,
+        "return_type": "replacement_only",
+        "is_replacement_only": true,
+        "conditions": [
+          "Product must be in original condition",
+          "All tags and packaging intact",
+          "Return only for defective or damaged items"
+        ],
+        "non_returnable_exceptions": [
+          "Innerwear",
+          "Personal care items",
+          "Digital products"
+        ],
+        "refund_method": "Snapdeal SD Cash or replacement",
+        "refund_timeline_days": 10
+      }
+    ],
+    "general_rules": {
+      "pickup_method": "Doorstep pickup",
+      "pickup_timeline": "Within 48-72 hours",
+      "damaged_on_delivery": "Report within 48 hours",
+      "refund_processing_after_pickup": "7-10 business days",
+      "cod_refund_method": "Snapdeal SD Cash",
+      "cancellation_policy": "Free cancellation before dispatch",
+      "open_box_delivery": "Not available"
+    }
+  },
+  {
+    "platform": "JioMart",
+    "platform_slug": "jiomart",
+    "logo_url": "https://logo.clearbit.com/jiomart.com",
+    "support_url": "https://www.jiomart.com/return-policy",
+    "support_email": null,
+    "support_phone": "1800-890-1222",
+    "escalation_email": null,
+    "categories": [
+      {
+        "category": "Grocery & Essentials",
+        "return_window_days": 2,
+        "return_type": "refund",
+        "is_replacement_only": false,
+        "conditions": [
+          "Product must be sealed and unopened",
+          "Report quality issues immediately on delivery"
+        ],
+        "non_returnable_exceptions": [
+          "Perishable items once opened",
+          "Fresh fruits and vegetables after 24 hours"
+        ],
+        "refund_method": "JioMart Wallet or original payment method",
+        "refund_timeline_days": 5
+      },
+      {
+        "category": "Fashion & Lifestyle",
+        "return_window_days": 7,
+        "return_type": "refund_or_exchange",
+        "is_replacement_only": false,
+        "conditions": [
+          "Product must be unused with tags",
+          "Original packaging intact"
+        ],
+        "non_returnable_exceptions": [
+          "Innerwear"
+        ],
+        "refund_method": "Original payment method or JioMart Wallet",
+        "refund_timeline_days": 7
+      },
+      {
+        "category": "Electronics",
+        "return_window_days": 7,
+        "return_type": "replacement_only",
+        "is_replacement_only": true,
+        "conditions": [
+          "Product must be in original condition",
+          "Manufacturing defects only"
+        ],
+        "non_returnable_exceptions": [],
+        "refund_method": "Replacement unit",
+        "refund_timeline_days": 10
+      }
+    ],
+    "general_rules": {
+      "pickup_method": "Doorstep pickup or JioMart store return",
+      "pickup_timeline": "Within 24-48 hours",
+      "damaged_on_delivery": "Report at delivery or within 24 hours",
+      "refund_processing_after_pickup": "5-7 business days",
+      "cod_refund_method": "JioMart Wallet",
+      "cancellation_policy": "Free cancellation before dispatch",
+      "open_box_delivery": "Available for select categories"
+    }
+  }
+]

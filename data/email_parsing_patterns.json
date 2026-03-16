@@ -1,0 +1,397 @@
+{
+  "email_parsing_patterns": {
+    "description": "Patterns and rules for identifying and extracting structured data from e-commerce emails. Used by Gemini 1.5 Flash to parse Gmail inbox.",
+    "supported_platforms": [
+      {
+        "platform": "Amazon India",
+        "sender_patterns": [
+          "auto-confirm@amazon.in",
+          "shipment-tracking@amazon.in",
+          "order-update@amazon.in",
+          "delivery-notification@amazon.in",
+          "returns@amazon.in",
+          "payments-messages@amazon.in",
+          "no-reply@amazon.in"
+        ],
+        "subject_patterns": {
+          "order_confirmation": [
+            "Your Amazon.in order of",
+            "Order Confirmed",
+            "Your order has been placed"
+          ],
+          "shipment": [
+            "Shipped:",
+            "Your package is on its way",
+            "Out for delivery",
+            "Dispatched:"
+          ],
+          "delivery": [
+            "Delivered:",
+            "Your package has been delivered",
+            "Your Amazon.in order has been delivered"
+          ],
+          "invoice": [
+            "Your invoice for",
+            "Tax Invoice",
+            "Invoice available"
+          ],
+          "return_initiated": [
+            "Return request received",
+            "Your return has been scheduled",
+            "Return pickup scheduled"
+          ],
+          "refund": [
+            "Refund issued",
+            "Your refund of",
+            "Refund processed"
+          ]
+        },
+        "extraction_fields": {
+          "order_id": {
+            "regex_patterns": [
+              "Order\\s*#?\\s*([0-9]{3}-[0-9]{7}-[0-9]{7})",
+              "order\\s*(?:number|no\\.?|id)?\\s*:?\\s*([0-9]{3}-[0-9]{7}-[0-9]{7})"
+            ],
+            "format": "XXX-XXXXXXX-XXXXXXX"
+          },
+          "item_name": {
+            "location": "Usually in email body after order ID, in bold or heading",
+            "ai_prompt": "Extract the product name from this order confirmation email. Look for the item title which is usually the most prominent text after the order number."
+          },
+          "price": {
+            "regex_patterns": [
+              "(?:Rs\\.?|INR|₹)\\s*([0-9,]+(?:\\.[0-9]{2})?)",
+              "Total\\s*:?\\s*(?:Rs\\.?|INR|₹)\\s*([0-9,]+(?:\\.[0-9]{2})?)"
+            ],
+            "currency": "INR"
+          },
+          "delivery_date": {
+            "regex_patterns": [
+              "(?:Delivered|Arriving|Delivery)\\s*(?:on|by)?\\s*:?\\s*([A-Za-z]+\\s+\\d{1,2},?\\s+\\d{4})",
+              "(?:Expected|Estimated)\\s+delivery\\s*:?\\s*([A-Za-z]+\\s+\\d{1,2},?\\s+\\d{4})"
+            ]
+          },
+          "tracking_id": {
+            "regex_patterns": [
+              "(?:Tracking|AWB)\\s*(?:number|no\\.?|id|#)?\\s*:?\\s*([A-Z0-9]{10,20})"
+            ]
+          }
+        }
+      },
+      {
+        "platform": "Flipkart",
+        "sender_patterns": [
+          "noreply@flipkart.com",
+          "donotreply@flipkart.com",
+          "order-update@flipkart.com",
+          "noreply@flkt.in"
+        ],
+        "subject_patterns": {
+          "order_confirmation": [
+            "Your Flipkart order",
+            "Order placed successfully",
+            "Order Confirmed"
+          ],
+          "shipment": [
+            "Your order has been shipped",
+            "Out for delivery",
+            "Your Flipkart order is on the way"
+          ],
+          "delivery": [
+            "Your order has been delivered",
+            "Delivered successfully"
+          ],
+          "invoice": [
+            "Invoice for your order",
+            "Tax Invoice"
+          ],
+          "return_initiated": [
+            "Return request accepted",
+            "Pickup scheduled for your return"
+          ],
+          "refund": [
+            "Refund initiated",
+            "Your refund has been processed",
+            "Refund credited"
+          ]
+        },
+        "extraction_fields": {
+          "order_id": {
+            "regex_patterns": [
+              "(?:Order|OD)\\s*(?:ID|#|No\\.?)?\\s*:?\\s*(OD[0-9]{15,20})",
+              "order\\s*id\\s*:?\\s*([A-Z0-9]{15,25})"
+            ],
+            "format": "ODXXXXXXXXXXXXXXXXX"
+          },
+          "item_name": {
+            "location": "Email body, usually as product title with brand name",
+            "ai_prompt": "Extract the product name from this Flipkart order email. The product name is typically shown as a clickable link or bold text."
+          },
+          "price": {
+            "regex_patterns": [
+              "(?:Rs\\.?|₹)\\s*([0-9,]+(?:\\.[0-9]{2})?)",
+              "(?:Amount|Total|Price)\\s*:?\\s*(?:Rs\\.?|₹)\\s*([0-9,]+)"
+            ],
+            "currency": "INR"
+          },
+          "delivery_date": {
+            "regex_patterns": [
+              "(?:Delivery|Arriving|Delivered)\\s*(?:by|on)?\\s*:?\\s*([A-Za-z]+\\s*,?\\s*[A-Za-z]+\\s+\\d{1,2})",
+              "(?:Expected|Estimated)\\s*(?:by)?\\s*:?\\s*([A-Za-z]+\\s+\\d{1,2},?\\s*\\d{0,4})"
+            ]
+          },
+          "tracking_id": {
+            "regex_patterns": [
+              "(?:Tracking|Shipment)\\s*(?:ID|No\\.?)?\\s*:?\\s*([A-Z0-9]{8,20})"
+            ]
+          }
+        }
+      },
+      {
+        "platform": "Myntra",
+        "sender_patterns": [
+          "noreply@myntra.com",
+          "do-not-reply@myntra.com",
+          "orders@myntra.com"
+        ],
+        "subject_patterns": {
+          "order_confirmation": [
+            "Your Myntra order",
+            "Order confirmed",
+            "We got your order"
+          ],
+          "shipment": [
+            "Your order is on its way",
+            "Shipped!",
+            "Your order has been dispatched"
+          ],
+          "delivery": [
+            "Your order has been delivered",
+            "Delivered!"
+          ],
+          "return_initiated": [
+            "Return request received",
+            "Your return pickup is scheduled"
+          ],
+          "refund": [
+            "Refund initiated",
+            "Refund processed for your order"
+          ]
+        },
+        "extraction_fields": {
+          "order_id": {
+            "regex_patterns": [
+              "(?:Order)\\s*(?:#|No\\.?|ID)?\\s*:?\\s*([A-Z0-9]{10,20})"
+            ],
+            "format": "ALPHANUMERIC"
+          },
+          "item_name": {
+            "location": "Product name with brand, usually styled with images",
+            "ai_prompt": "Extract the product brand and name from this Myntra order email. Myntra emails typically show brand name prominently followed by product description."
+          },
+          "price": {
+            "regex_patterns": [
+              "(?:Rs\\.?|₹|MRP)\\s*([0-9,]+(?:\\.[0-9]{2})?)"
+            ],
+            "currency": "INR"
+          },
+          "delivery_date": {
+            "regex_patterns": [
+              "(?:Delivery|Arriving|Expected)\\s*(?:by|on)?\\s*:?\\s*([A-Za-z]+\\s+\\d{1,2},?\\s*\\d{0,4})"
+            ]
+          }
+        }
+      },
+      {
+        "platform": "Meesho",
+        "sender_patterns": [
+          "noreply@meesho.com",
+          "orders@meesho.com",
+          "support@meesho.com"
+        ],
+        "subject_patterns": {
+          "order_confirmation": [
+            "Your Meesho order",
+            "Order placed successfully"
+          ],
+          "shipment": [
+            "Your order has been shipped",
+            "Out for delivery"
+          ],
+          "delivery": [
+            "Your order has been delivered",
+            "Delivered"
+          ],
+          "return_initiated": [
+            "Return request received",
+            "Pickup scheduled"
+          ],
+          "refund": [
+            "Refund processed",
+            "Refund credited to your wallet"
+          ]
+        },
+        "extraction_fields": {
+          "order_id": {
+            "regex_patterns": [
+              "(?:Order)\\s*(?:#|No\\.?|ID)?\\s*:?\\s*([A-Z0-9]{8,20})"
+            ],
+            "format": "ALPHANUMERIC"
+          },
+          "item_name": {
+            "location": "Product name in email body",
+            "ai_prompt": "Extract the product name from this Meesho order email."
+          },
+          "price": {
+            "regex_patterns": [
+              "(?:Rs\\.?|₹)\\s*([0-9,]+(?:\\.[0-9]{2})?)"
+            ],
+            "currency": "INR"
+          }
+        }
+      },
+      {
+        "platform": "AJIO",
+        "sender_patterns": [
+          "noreply@ajio.com",
+          "orders@ajio.com",
+          "do-not-reply@ajio.com"
+        ],
+        "subject_patterns": {
+          "order_confirmation": [
+            "Your AJIO order",
+            "Order confirmed"
+          ],
+          "shipment": [
+            "Your order has been shipped",
+            "On the way"
+          ],
+          "delivery": [
+            "Delivered",
+            "Your order has been delivered"
+          ],
+          "return_initiated": [
+            "Return request",
+            "Return pickup scheduled"
+          ],
+          "refund": [
+            "Refund initiated",
+            "Refund processed"
+          ]
+        },
+        "extraction_fields": {
+          "order_id": {
+            "regex_patterns": [
+              "(?:Order)\\s*(?:#|No\\.?|ID)?\\s*:?\\s*([A-Z0-9]{8,20})"
+            ],
+            "format": "ALPHANUMERIC"
+          },
+          "item_name": {
+            "location": "Brand + product name in email body",
+            "ai_prompt": "Extract the brand and product name from this AJIO order email."
+          },
+          "price": {
+            "regex_patterns": [
+              "(?:Rs\\.?|₹)\\s*([0-9,]+(?:\\.[0-9]{2})?)"
+            ],
+            "currency": "INR"
+          }
+        }
+      },
+      {
+        "platform": "Nykaa",
+        "sender_patterns": [
+          "noreply@nykaa.com",
+          "info@nykaa.com",
+          "orders@nykaa.com"
+        ],
+        "subject_patterns": {
+          "order_confirmation": [
+            "Your Nykaa order",
+            "Order placed"
+          ],
+          "shipment": [
+            "Your order is on its way",
+            "Shipped"
+          ],
+          "delivery": [
+            "Delivered",
+            "Your order has arrived"
+          ],
+          "refund": [
+            "Refund initiated",
+            "Store credit added"
+          ]
+        },
+        "extraction_fields": {
+          "order_id": {
+            "regex_patterns": [
+              "(?:Order)\\s*(?:#|No\\.?|ID)?\\s*:?\\s*([A-Z0-9]{6,20})"
+            ],
+            "format": "ALPHANUMERIC"
+          },
+          "item_name": {
+            "location": "Product name with brand",
+            "ai_prompt": "Extract the product brand and name from this Nykaa order email."
+          },
+          "price": {
+            "regex_patterns": [
+              "(?:Rs\\.?|₹|MRP)\\s*([0-9,]+(?:\\.[0-9]{2})?)"
+            ],
+            "currency": "INR"
+          }
+        }
+      }
+    ],
+    "notification_patterns": {
+      "description": "Patterns for parsing Android notifications and SMS from e-commerce apps",
+      "whatsapp_patterns": [
+        {
+          "sender_contains": ["flipkart", "myntra", "amazon", "meesho", "ajio"],
+          "message_types": {
+            "delivery_update": "Your order .* has been delivered",
+            "shipment_update": "Your order .* has been shipped",
+            "return_pickup": "Return pickup .* scheduled",
+            "refund_update": "Refund of .* processed"
+          }
+        }
+      ],
+      "sms_patterns": [
+        {
+          "sender_ids": ["VM-AMAZON", "AX-FLPKRT", "JD-MYNTRA", "BZ-MEESHO", "AD-AJIOIN"],
+          "otp_filter": "Ignore messages containing OTP, verification code, or login",
+          "extract": "order_id, status, amount, tracking_url"
+        }
+      ]
+    },
+    "gemini_master_prompt": {
+      "description": "The system prompt to send to Gemini 1.5 Flash for parsing any e-commerce email",
+      "prompt": "You are an AI email parser for Returnkart, an Indian e-commerce return tracking app. Your job is to extract structured order data from e-commerce emails.\n\nAnalyze the following email and extract data into this exact JSON format. If a field cannot be determined, use null.\n\n```json\n{\n  \"email_type\": \"order_confirmation | shipment | delivery | invoice | return_initiated | refund | other\",\n  \"order_context\": {\n    \"order_id\": \"string\",\n    \"brand\": \"amazon_in | flipkart | myntra | meesho | ajio | nykaa | tatacliq | snapdeal | jiomart | other\",\n    \"brand_display_name\": \"string\",\n    \"item_name\": \"string\",\n    \"item_category\": \"fashion | electronics | mobile | appliance | beauty | home | books | grocery | other\",\n    \"total_amount\": number,\n    \"currency\": \"INR\",\n    \"quantity\": number\n  },\n  \"return_logic\": {\n    \"policy_window_days\": number,\n    \"expiry_date\": \"YYYY-MM-DD\",\n    \"is_replacement_only\": boolean,\n    \"refund_type\": \"bank_refund | store_credit | replacement | null\"\n  },\n  \"logistics\": {\n    \"delivery_pincode\": \"string or null\",\n    \"courier_partner\": \"string or null\",\n    \"tracking_id\": \"string or null\",\n    \"order_date\": \"YYYY-MM-DD\",\n    \"expected_delivery_date\": \"YYYY-MM-DD or null\",\n    \"actual_delivery_date\": \"YYYY-MM-DD or null\"\n  },\n  \"confidence_score\": 0.0 to 1.0\n}\n```\n\nIMPORTANT RULES:\n1. For return_logic.policy_window_days, use the return policy dataset to look up the correct window based on brand + category.\n2. Calculate expiry_date as: actual_delivery_date + policy_window_days.\n3. If the email is not an e-commerce order/shipping/delivery email, return {\"email_type\": \"other\", \"is_ecommerce\": false}.\n4. Always extract amounts in INR (Indian Rupees).\n5. Normalize brand names to lowercase slugs.\n6. confidence_score should reflect how certain you are about the extraction (1.0 = perfect match, 0.5 = some guessing)."
+    },
+    "gmail_search_queries": {
+      "description": "Gmail API search queries to find e-commerce emails",
+      "queries": [
+        {
+          "name": "All order confirmations (last 90 days)",
+          "query": "newer_than:90d (from:amazon.in OR from:flipkart.com OR from:myntra.com OR from:meesho.com OR from:ajio.com OR from:nykaa.com OR from:tatacliq.com OR from:snapdeal.com OR from:jiomart.com) (subject:order OR subject:invoice OR subject:shipped OR subject:delivered OR subject:return OR subject:refund)"
+        },
+        {
+          "name": "Amazon orders",
+          "query": "newer_than:90d from:amazon.in (subject:order OR subject:shipped OR subject:delivered OR subject:invoice)"
+        },
+        {
+          "name": "Flipkart orders",
+          "query": "newer_than:90d from:flipkart.com (subject:order OR subject:shipped OR subject:delivered)"
+        },
+        {
+          "name": "Myntra orders",
+          "query": "newer_than:90d from:myntra.com (subject:order OR subject:shipped OR subject:delivered)"
+        },
+        {
+          "name": "All returns and refunds",
+          "query": "newer_than:180d (from:amazon.in OR from:flipkart.com OR from:myntra.com OR from:meesho.com) (subject:return OR subject:refund OR subject:pickup)"
+        }
+      ]
+    }
+  }
+}

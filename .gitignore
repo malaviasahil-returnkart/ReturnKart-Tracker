@@ -1,6 +1,27 @@
-node_modules
-dist
+# Secrets — CRITICAL
+.env
+.env.local
+.env.production
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Replit
+.config/
+.upm/
+.breakpoints
+
+# OS
 .DS_Store
-server/public
-vite.config.ts.*
-*.tar.gz
+*.log
+logs/
+.pytest_cache/
+.coverage

@@ -1,0 +1,170 @@
+{
+  "_meta": {
+    "version": "1.0.0",
+    "last_updated": "2026-03-14",
+    "description": "ReturnKart RAG knowledge base — return policies for Indian e-commerce platforms",
+    "usage": "Read by backend/services/gemini_service.py to calculate return deadlines"
+  },
+  "platforms": [
+    {
+      "brand": "Amazon India",
+      "brand_slug": "amazon",
+      "email_domains": ["amazon.in", "amazon.com"],
+      "email_subjects": ["Your Amazon.in order", "Order Confirmation", "Dispatched"],
+      "categories": [
+        {
+          "category": "Fashion & Apparel",
+          "return_window_days": 10,
+          "return_type": "refund",
+          "is_replacement_only": false,
+          "conditions": ["Unused with original tags", "Original packaging required"],
+          "non_returnable": ["Innerwear", "Socks", "Customized items"]
+        },
+        {
+          "category": "Electronics",
+          "return_window_days": 7,
+          "return_type": "replacement",
+          "is_replacement_only": true,
+          "conditions": ["Original packaging", "All accessories included", "Invoice required"],
+          "non_returnable": ["Software", "Digital content"]
+        },
+        {
+          "category": "Default",
+          "return_window_days": 10,
+          "return_type": "refund",
+          "is_replacement_only": false,
+          "conditions": ["Original packaging", "Unused condition"],
+          "non_returnable": []
+        }
+      ]
+    },
+    {
+      "brand": "Myntra",
+      "brand_slug": "myntra",
+      "email_domains": ["myntra.com"],
+      "email_subjects": ["Order Confirmed", "Your Myntra Order", "Shipment"],
+      "categories": [
+        {
+          "category": "Fashion Standard",
+          "return_window_days": 14,
+          "return_type": "refund",
+          "is_replacement_only": false,
+          "conditions": ["Unused with original tags"],
+          "non_returnable": ["Innerwear", "Lingerie", "Fragrances"]
+        },
+        {
+          "category": "Fashion Premium",
+          "return_window_days": 30,
+          "return_type": "refund",
+          "is_replacement_only": false,
+          "conditions": ["Unused with original tags", "Premium category item"],
+          "non_returnable": ["Lingerie", "Fragrances"]
+        },
+        {
+          "category": "Default",
+          "return_window_days": 14,
+          "return_type": "refund",
+          "is_replacement_only": false,
+          "conditions": ["Unused with original tags"],
+          "non_returnable": ["Innerwear", "Lingerie", "Fragrances"]
+        }
+      ]
+    },
+    {
+      "brand": "Flipkart",
+      "brand_slug": "flipkart",
+      "email_domains": ["flipkart.com"],
+      "email_subjects": ["Order Confirmed", "Your Flipkart order", "Shipped"],
+      "categories": [
+        {
+          "category": "Fashion & Apparel",
+          "return_window_days": 10,
+          "return_type": "refund",
+          "is_replacement_only": false,
+          "conditions": ["Unused with original tags", "Original packaging"],
+          "non_returnable": ["Innerwear", "Socks", "Customized items"]
+        },
+        {
+          "category": "Electronics",
+          "return_window_days": 7,
+          "return_type": "replacement",
+          "is_replacement_only": true,
+          "conditions": ["Original packaging", "Unboxing video required for disputes"],
+          "non_returnable": ["Software", "Mobile recharges"]
+        },
+        {
+          "category": "Default",
+          "return_window_days": 10,
+          "return_type": "refund",
+          "is_replacement_only": false,
+          "conditions": ["Original packaging", "Unused"],
+          "non_returnable": []
+        }
+      ]
+    },
+    {
+      "brand": "Meesho",
+      "brand_slug": "meesho",
+      "email_domains": ["meesho.com", "meesho.io"],
+      "email_subjects": ["Your Meesho order", "Order placed", "Shipped"],
+      "categories": [
+        {
+          "category": "Fashion & Apparel",
+          "return_window_days": 7,
+          "return_type": "refund",
+          "is_replacement_only": false,
+          "conditions": ["Continuous unboxing video REQUIRED", "Unused with original tags"],
+          "non_returnable": ["Innerwear", "Customized items"]
+        },
+        {
+          "category": "Default",
+          "return_window_days": 7,
+          "return_type": "refund",
+          "is_replacement_only": false,
+          "conditions": ["Continuous unboxing video required", "Unused"],
+          "non_returnable": []
+        }
+      ]
+    },
+    {
+      "brand": "Ajio",
+      "brand_slug": "ajio",
+      "email_domains": ["ajio.com"],
+      "email_subjects": ["Your AJIO order", "Order Confirmed", "Dispatched"],
+      "categories": [
+        {
+          "category": "Fashion & Apparel",
+          "return_window_days": 15,
+          "return_type": "refund",
+          "is_replacement_only": false,
+          "conditions": ["Unused with original tags", "Original packaging"],
+          "non_returnable": ["Innerwear", "Customized items", "LUXE category items"]
+        },
+        {
+          "category": "Electronics",
+          "return_window_days": 7,
+          "return_type": "refund",
+          "is_replacement_only": false,
+          "conditions": ["Original packaging", "All accessories"],
+          "non_returnable": []
+        },
+        {
+          "category": "Default",
+          "return_window_days": 15,
+          "return_type": "refund",
+          "is_replacement_only": false,
+          "conditions": ["Unused with tags", "Original packaging"],
+          "non_returnable": ["Innerwear"]
+        }
+      ]
+    }
+  ],
+  "fallback_policy": {
+    "description": "Used when brand is not recognized or category cannot be determined",
+    "return_window_days": 7,
+    "return_type": "refund",
+    "is_replacement_only": false,
+    "conditions": ["Contact brand directly", "Original packaging recommended"],
+    "non_returnable": []
+  }
+}
