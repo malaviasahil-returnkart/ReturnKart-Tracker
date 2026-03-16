@@ -1,11 +1,14 @@
 """
 RETURNKART.IN — FASTAPI ENTRY POINT
-Written last — all dependencies exist before this file.
 PORT is read from environment (injected by Replit). NEVER hardcode it.
+Frontend: serves built React app as static files from /frontend/dist
 """
 import uvicorn
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from backend.config import PORT, FRONTEND_URL, ENV
 from backend.api.health import router as health_router
@@ -16,10 +19,10 @@ app = FastAPI(
     title="ReturnKart.in API",
     description="AI-powered e-commerce return window tracker for India",
     version="1.0.0",
-    docs_url="/api/docs" if ENV != "production" else None,
+    docs_url="/api/docs",
 )
 
-# CORS — allow frontend origin
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[FRONTEND_URL, "https://return-kart-tracker.replit.app"],
@@ -28,11 +31,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Routes
+# API Routes
 app.include_router(health_router, prefix="/api")
 app.include_router(auth_router,   prefix="/api/auth",   tags=["auth"])
 app.include_router(orders_router, prefix="/api/orders", tags=["orders"])
 
+# Serve React frontend from /frontend/dist
+DIST = Path(__file__).parent.parent / "frontend" / "dist"
+
+if DIST.exists():
+    # Serve static assets (JS, CSS, images)
+    app.mount("/assets", StaticFiles(directory=str(DIST / "assets")), name="assets")
+
+    # Catch-all: serve index.html for all non-API routes (SPA routing)
+    @app.get("/{full_path:path}")
+    async def serve_frontend(full_path: str):
+        index = DIST / "index.html"
+        return FileResponse(str(index))
+else:
+    @app.get("/")
+    async def root():
+        return {"message": "ReturnKart API is live. Frontend not built yet."}
+
 if __name__ == "__main__":
     print(f"ReturnKart backend starting on port {PORT} [{ENV}]")
+    print(f"Frontend dist: {'found' if DIST.exists() else 'NOT FOUND — run: cd frontend && npm run build'}")
     uvicorn.run("backend.main:app", host="0.0.0.0", port=PORT, reload=(ENV != "production"))

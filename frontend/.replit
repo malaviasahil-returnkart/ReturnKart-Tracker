@@ -1,0 +1,12 @@
+run = "bash start.sh"
+entrypoint = "backend/main.py"
+hidden = [".config", ".upm", ".gitignore", "__pycache__"]
+
+[nix]
+channel = "stable-24_05"
+
+[env]
+PYTHONPATH = "/home/runner/workspace"
+
+[deployment]
+run = ["bash", "/home/runner/workspace/deploy.sh"]

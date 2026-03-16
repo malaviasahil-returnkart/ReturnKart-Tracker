@@ -9,16 +9,5 @@ channel = "stable-24_05"
 PYTHONPATH = "${REPL_HOME}"
 
 [deployment]
-run = [".venv/bin/python", "backend/main.py"]
-
-[[ports]]
-localPort = 3001
-externalPort = 80
-
-[[ports]]
-localPort = 5000
-externalPort = 5000
-
-[[ports]]
-localPort = 8000
-externalPort = 8000
+# Build frontend first, then start backend which serves it as static files
+run = ["sh", "-c", "cd frontend && npm install --silent && npm run build && cd .. && .venv/bin/python backend/main.py"]
