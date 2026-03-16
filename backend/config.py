@@ -10,13 +10,11 @@ load_dotenv()
 
 
 def _require(key: str) -> str:
-    """Get a required env variable or raise a clear error at startup."""
+    """Get a required env variable. Warns but doesn't crash if missing — lets server start."""
     value = os.getenv(key)
     if not value:
-        raise EnvironmentError(
-            f"Missing required env variable: {key}\n"
-            f"Add it to .env (dev) or Replit Secrets (production)."
-        )
+        print(f"WARNING: Missing env variable: {key}. Add it to Replit Secrets.")
+        return ""
     return value
 
 
@@ -38,6 +36,6 @@ GEMINI_API_KEY: str = _require("GEMINI_API_KEY")
 
 # App — PORT is injected by Replit. NEVER hardcode.
 PORT: int = int(os.getenv("PORT", "8000"))
-FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:5173")
+FRONTEND_URL: str = os.getenv("FRONTEND_URL", "https://return-kart-tracker.replit.app")
 ENV: str = os.getenv("ENV", "development")
 IS_PRODUCTION: bool = ENV == "production"
