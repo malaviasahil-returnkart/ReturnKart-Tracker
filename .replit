@@ -11,3 +11,11 @@ PYTHONPATH = "${REPL_HOME}"
 [deployment]
 # Build frontend first, then start backend which serves it as static files
 run = ["sh", "-c", "cd frontend && npm install --silent && npm run build && cd .. && .venv/bin/python backend/main.py"]
+
+[[ports]]
+localPort = 5173
+externalPort = 80
+
+[[ports]]
+localPort = 8000
+externalPort = 8000
