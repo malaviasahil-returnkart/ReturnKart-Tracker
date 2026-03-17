@@ -1,19 +1,27 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { api } from '../lib/api'
 import { formatINR, daysRemaining, urgencyLevel, urgencyColor, formatDate } from '../lib/formatters'
 
-export default function Dashboard({ userId, onDisconnect }) {
+export default function Dashboard({ userId, onDisconnect, onSettings }) {
   const [orders, setOrders]       = useState([])
+  const [allOrders, setAllOrders] = useState([])
   const [loading, setLoading]     = useState(true)
   const [syncing, setSyncing]     = useState(false)
   const [selected, setSelected]   = useState(null)
-  const [tab, setTab]             = useState('active') // active | all | expired
+  const [tab, setTab]             = useState('active')
+  const [syncResult, setSyncResult] = useState(null)
 
   const loadOrders = useCallback(() => {
     setLoading(true)
-    api.getOrders(userId, tab === 'all' ? null : tab)
-      .then(data => setOrders(data.orders || []))
-      .catch(() => setOrders([]))
+    Promise.all([
+      api.getOrders(userId, tab === 'all' ? null : tab),
+      api.getOrders(userId)
+    ])
+      .then(([filtered, all]) => {
+        setOrders(filtered.orders || [])
+        setAllOrders(all.orders || [])
+      })
+      .catch(() => { setOrders([]); setAllOrders([]) })
       .finally(() => setLoading(false))
   }, [userId, tab])
 
@@ -21,13 +29,20 @@ export default function Dashboard({ userId, onDisconnect }) {
 
   async function handleSync() {
     setSyncing(true)
+    setSyncResult(null)
     try {
-      await api.syncGmail(userId)
-      setTimeout(loadOrders, 2000) // give backend time to process
+      const res = await api.syncGmail(userId)
+      setTimeout(() => {
+        loadOrders()
+        setSyncResult('Sync complete')
+        setTimeout(() => setSyncResult(null), 3000)
+      }, 3000)
     } catch(e) {
       console.error(e)
+      setSyncResult('Sync failed')
+      setTimeout(() => setSyncResult(null), 3000)
     } finally {
-      setTimeout(() => setSyncing(false), 2500)
+      setTimeout(() => setSyncing(false), 3500)
     }
   }
 
@@ -43,21 +58,26 @@ export default function Dashboard({ userId, onDisconnect }) {
     loadOrders()
   }
 
-  // Total money at risk (active orders expiring within 7 days)
-  const moneyAtRisk = orders
-    .filter(o => { const d = daysRemaining(o.return_deadline); return d !== null && d >= 0 && d <= 7 })
-    .reduce((sum, o) => sum + (o.price || 0), 0)
+  // Stats from ALL orders
+  const activeOrders = allOrders.filter(o => o.status === 'active')
+  const totalProtected = activeOrders.reduce((sum, o) => sum + (o.price || 0), 0)
 
-  const urgentOrders = orders.filter(o => {
+  const urgentOrders = activeOrders.filter(o => {
     const d = daysRemaining(o.return_deadline)
     return d !== null && d >= 0 && d <= 3
   })
+  const moneyAtRisk = urgentOrders.reduce((sum, o) => sum + (o.price || 0), 0)
+
+  const savedOrders = allOrders.filter(o => o.status === 'returned')
+  const moneySaved = savedOrders.reduce((sum, o) => sum + (o.price || 0), 0)
+
+  const expiredOrders = allOrders.filter(o => o.status === 'expired')
 
   return (
     <div className="min-h-screen bg-vault-black flex flex-col">
 
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-vault-black border-b border-vault-border px-4 py-3 flex items-center justify-between">
+      <header className="sticky top-0 z-10 bg-vault-black/95 backdrop-blur-sm border-b border-vault-border px-4 py-3 flex items-center justify-between">
         <h1 className="text-vault-gold font-bold text-lg tracking-tight">
           Return<span className="text-vault-text">Kart</span>
         </h1>
@@ -68,39 +88,85 @@ export default function Dashboard({ userId, onDisconnect }) {
             className="bg-vault-card card-border text-vault-muted px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 active:scale-95 transition-transform"
           >
             <span className={syncing ? 'animate-spin inline-block' : ''}>↻</span>
-            {syncing ? 'Syncing…' : 'Sync Gmail'}
+            {syncing ? 'Syncing…' : 'Sync'}
           </button>
-          <button onClick={onDisconnect} className="text-vault-muted text-xs px-2 py-1.5">
+          <button onClick={onSettings} className="text-vault-muted text-sm px-2 py-1.5 active:scale-95 transition-transform">
             ⚙
           </button>
         </div>
       </header>
 
-      {/* Money at risk banner */}
-      {moneyAtRisk > 0 && (
-        <div className="mx-4 mt-4 rounded-2xl bg-vault-card urgent-border px-4 py-4 flex items-center justify-between animate-slide-up">
-          <div>
-            <p className="text-vault-muted text-xs uppercase tracking-wider">Money at Risk</p>
-            <p className="text-2xl font-bold text-vault-urgent mt-0.5">{formatINR(moneyAtRisk)}</p>
-            <p className="text-vault-muted text-xs mt-1">{urgentOrders.length} order{urgentOrders.length !== 1 ? 's' : ''} expiring in ≤3 days</p>
+      {/* Sync result toast */}
+      {syncResult && (
+        <div className="mx-4 mt-2 rounded-xl bg-vault-card card-border px-3 py-2 text-center text-xs text-vault-muted animate-fade-in">
+          {syncResult}
+        </div>
+      )}
+
+      {/* Summary Stats */}
+      <div className="grid grid-cols-3 gap-2 px-4 mt-4">
+        <div className="bg-vault-card card-border rounded-2xl px-3 py-3 text-center">
+          <p className="text-vault-muted text-[10px] uppercase tracking-wider">Protected</p>
+          <p className="text-vault-gold font-bold text-base mt-0.5">{formatINR(totalProtected)}</p>
+          <p className="text-vault-muted text-[10px] mt-0.5">{activeOrders.length} active</p>
+        </div>
+        <div className={`bg-vault-card rounded-2xl px-3 py-3 text-center ${moneyAtRisk > 0 ? 'urgent-border' : 'card-border'}`}>
+          <p className="text-vault-muted text-[10px] uppercase tracking-wider">At Risk</p>
+          <p className={`font-bold text-base mt-0.5 ${moneyAtRisk > 0 ? 'text-vault-urgent' : 'text-vault-muted'}`}>{formatINR(moneyAtRisk)}</p>
+          <p className="text-vault-muted text-[10px] mt-0.5">{urgentOrders.length} expiring</p>
+        </div>
+        <div className="bg-vault-card card-border rounded-2xl px-3 py-3 text-center">
+          <p className="text-vault-muted text-[10px] uppercase tracking-wider">Saved</p>
+          <p className="text-vault-safe font-bold text-base mt-0.5">{formatINR(moneySaved)}</p>
+          <p className="text-vault-muted text-[10px] mt-0.5">{savedOrders.length} returned</p>
+        </div>
+      </div>
+
+      {/* Urgent Carousel */}
+      {urgentOrders.length > 0 && (
+        <div className="mt-4 px-4">
+          <p className="text-vault-urgent text-xs font-semibold uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <span className="inline-block w-2 h-2 rounded-full bg-vault-urgent animate-pulse" />
+            Expiring Soon
+          </p>
+          <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
+            {urgentOrders.map(order => {
+              const days = daysRemaining(order.return_deadline)
+              return (
+                <button
+                  key={order.id}
+                  onClick={() => setSelected(order)}
+                  className="flex-shrink-0 w-64 bg-vault-card urgent-border rounded-2xl px-4 py-3 text-left active:scale-95 transition-transform"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-vault-border text-vault-muted">{order.brand}</span>
+                    <span className="text-vault-urgent font-bold text-lg">{days}d</span>
+                  </div>
+                  <p className="text-vault-text font-medium text-sm mt-2 truncate">{order.item_name}</p>
+                  <p className="text-vault-gold font-semibold text-sm mt-1">{formatINR(order.price)}</p>
+                </button>
+              )
+            })}
           </div>
-          <div className="text-4xl">⚠️</div>
         </div>
       )}
 
       {/* Tabs */}
       <div className="flex gap-1 px-4 mt-4">
-        {[['active','Active'],['all','All'],['expired','Expired']].map(([val, label]) => (
+        {[['active','Active'],['all','All'],['returned','Returned'],['expired','Expired']].map(([val, label]) => (
           <button
             key={val}
             onClick={() => setTab(val)}
-            className={`px-4 py-1.5 rounded-xl text-sm font-medium transition-colors ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-colors ${
               tab === val
                 ? 'bg-vault-gold text-vault-black'
                 : 'bg-vault-card text-vault-muted card-border'
             }`}
           >
             {label}
+            {val === 'active' && activeOrders.length > 0 && (
+              <span className="ml-1 text-[10px] opacity-70">{activeOrders.length}</span>
+            )}
           </button>
         ))}
       </div>
@@ -113,9 +179,12 @@ export default function Dashboard({ userId, onDisconnect }) {
           </div>
         ) : orders.length === 0 ? (
           <div className="flex flex-col items-center py-16 gap-4 animate-fade-in">
-            <span className="text-5xl">📬</span>
+            <span className="text-5xl">{tab === 'returned' ? '🎉' : tab === 'expired' ? '⏰' : '📬'}</span>
             <p className="text-vault-muted text-center text-sm">
-              {tab === 'active' ? 'No active orders tracked yet.\nTap Sync Gmail to import orders.' : 'No orders here.'}
+              {tab === 'active' ? 'No active orders tracked yet.\nTap Sync to import from Gmail.' 
+                : tab === 'returned' ? 'No returned orders yet.\nMark orders as returned from the detail view.'
+                : tab === 'expired' ? 'No expired orders — nice!'
+                : 'No orders found.'}
             </p>
             {tab === 'active' && (
               <button onClick={handleSync} disabled={syncing} className="mt-2 bg-vault-gold text-vault-black px-6 py-2 rounded-xl font-semibold text-sm active:scale-95 transition-transform">
@@ -146,8 +215,14 @@ function OrderCard({ order, onTap }) {
   const level = urgencyLevel(days)
   const color = urgencyColor(level)
 
-  const cardClass = level === 'expired'
-    ? 'opacity-50'
+  const statusBadge = order.status === 'returned'
+    ? { text: 'Returned', bg: 'bg-green-900/30', textColor: 'text-green-400' }
+    : order.status === 'kept'
+    ? { text: 'Keeping', bg: 'bg-blue-900/30', textColor: 'text-blue-400' }
+    : null
+
+  const cardClass = order.status === 'expired' || order.status === 'returned' || order.status === 'kept'
+    ? 'opacity-60 card-border'
     : level === 'critical' || level === 'urgent'
     ? 'urgent-border'
     : 'card-border'
@@ -155,16 +230,19 @@ function OrderCard({ order, onTap }) {
   return (
     <button
       onClick={onTap}
-      className={`w-full bg-vault-card rounded-2xl px-4 py-4 text-left ${cardClass} active:scale-98 transition-transform animate-slide-up`}
+      className={`w-full bg-vault-card rounded-2xl px-4 py-4 text-left ${cardClass} active:scale-[0.98] transition-transform animate-slide-up`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-vault-border text-vault-muted">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-vault-border text-vault-muted">
               {order.brand}
             </span>
             {order.is_replacement_only && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-900/40 text-yellow-400">Replace only</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-900/40 text-yellow-400">Replace only</span>
+            )}
+            {statusBadge && (
+              <span className={`text-[10px] px-2 py-0.5 rounded-full ${statusBadge.bg} ${statusBadge.textColor}`}>{statusBadge.text}</span>
             )}
           </div>
           <p className="text-vault-text font-medium text-sm truncate">{order.item_name}</p>
@@ -173,18 +251,21 @@ function OrderCard({ order, onTap }) {
 
         {/* Countdown */}
         <div className="flex flex-col items-center flex-shrink-0">
-          {days === null ? (
+          {order.status === 'returned' ? (
+            <span className="text-green-400 text-xl">✓</span>
+          ) : order.status === 'kept' ? (
+            <span className="text-blue-400 text-xl">♡</span>
+          ) : days === null ? (
             <span className="text-vault-muted text-xs">—</span>
           ) : days < 0 ? (
             <span className="text-vault-muted text-xs font-medium">Expired</span>
           ) : (
             <>
               <span className="text-2xl font-bold" style={{ color }}>{days}</span>
-              <span className="text-xs" style={{ color: '#A0A0A0' }}>day{days !== 1 ? 's' : ''} left</span>
+              <span className="text-[10px]" style={{ color: '#A0A0A0' }}>day{days !== 1 ? 's' : ''}</span>
             </>
           )}
-          {/* Progress arc */}
-          <CountdownArc days={days} color={color} />
+          {order.status === 'active' && <CountdownArc days={days} color={color} />}
         </div>
       </div>
     </button>
@@ -219,22 +300,22 @@ function OrderSheet({ order, onClose, onKept, onReturned }) {
 
   return (
     <>
-      {/* Backdrop */}
       <div onClick={onClose} className="fixed inset-0 bg-black/60 z-20 animate-fade-in" />
 
-      {/* Sheet */}
       <div className="fixed bottom-0 left-0 right-0 z-30 bg-vault-card rounded-t-3xl px-5 py-6 flex flex-col gap-5 animate-slide-up max-h-[85vh] overflow-y-auto">
-        {/* Handle */}
         <div className="w-10 h-1 bg-vault-border rounded-full mx-auto -mt-1" />
 
-        {/* Header */}
         <div>
-          <span className="text-xs font-semibold text-vault-muted px-2 py-0.5 rounded-full bg-vault-border">{order.brand}</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-semibold text-vault-muted px-2 py-0.5 rounded-full bg-vault-border">{order.brand}</span>
+            {order.is_replacement_only && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-900/40 text-yellow-400">Replace only</span>
+            )}
+          </div>
           <h2 className="text-vault-text font-semibold text-base mt-2">{order.item_name}</h2>
           <p className="text-vault-muted text-sm mt-0.5">Order #{order.order_id}</p>
         </div>
 
-        {/* Stats grid */}
         <div className="grid grid-cols-2 gap-3">
           {[
             { label: 'Order Value', value: formatINR(order.price), highlight: true },
@@ -253,14 +334,12 @@ function OrderSheet({ order, onClose, onKept, onReturned }) {
           ))}
         </div>
 
-        {/* Return type badge */}
         {order.is_replacement_only && (
           <div className="bg-yellow-900/20 border border-yellow-700/30 rounded-xl px-4 py-3 text-sm text-yellow-400">
             ⚠️ This item is <strong>replacement only</strong> — no cash refund available.
           </div>
         )}
 
-        {/* Action buttons */}
         {order.status === 'active' && (
           <div className="flex flex-col gap-3">
             <button
@@ -279,8 +358,14 @@ function OrderSheet({ order, onClose, onKept, onReturned }) {
         )}
 
         {order.status !== 'active' && (
-          <div className="text-center text-vault-muted text-sm py-2">
-            Status: <span className="text-vault-text capitalize font-medium">{order.status}</span>
+          <div className={`text-center py-3 rounded-2xl text-sm font-medium ${
+            order.status === 'returned' ? 'bg-green-900/20 text-green-400' 
+            : order.status === 'kept' ? 'bg-blue-900/20 text-blue-400'
+            : 'bg-vault-card text-vault-muted'
+          }`}>
+            {order.status === 'returned' ? '✓ Returned successfully' 
+              : order.status === 'kept' ? '♡ You\'re keeping this item'
+              : `Status: ${order.status}`}
           </div>
         )}
       </div>

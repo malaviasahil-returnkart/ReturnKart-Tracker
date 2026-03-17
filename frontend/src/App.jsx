@@ -2,18 +2,19 @@ import { useState, useEffect } from 'react'
 import { api } from './lib/api'
 import Onboarding from './pages/Onboarding'
 import Dashboard from './pages/Dashboard'
+import Settings from './pages/Settings'
 
 export default function App() {
   const [userId, setUserId] = useState(() => localStorage.getItem('rk_user_id'))
   const [gmailConnected, setGmailConnected] = useState(false)
   const [checking, setChecking] = useState(true)
+  const [page, setPage] = useState('dashboard') // dashboard | settings
 
   // Check URL params after OAuth redirect
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     if (params.get('gmail') === 'connected') {
       setGmailConnected(true)
-      // Clean URL
       window.history.replaceState({}, '', '/')
     }
     if (params.get('error')) {
@@ -34,7 +35,6 @@ export default function App() {
   function handleConnect(uid) {
     localStorage.setItem('rk_user_id', uid)
     setUserId(uid)
-    // Redirect to Gmail OAuth
     window.location.href = api.gmailOAuthUrl(uid)
   }
 
@@ -43,6 +43,7 @@ export default function App() {
     localStorage.removeItem('rk_user_id')
     setUserId(null)
     setGmailConnected(false)
+    setPage('dashboard')
   }
 
   if (checking) {
@@ -57,5 +58,21 @@ export default function App() {
     return <Onboarding onConnect={handleConnect} />
   }
 
-  return <Dashboard userId={userId} onDisconnect={handleDisconnect} />
+  if (page === 'settings') {
+    return (
+      <Settings
+        userId={userId}
+        onDisconnect={handleDisconnect}
+        onBack={() => setPage('dashboard')}
+      />
+    )
+  }
+
+  return (
+    <Dashboard
+      userId={userId}
+      onDisconnect={handleDisconnect}
+      onSettings={() => setPage('settings')}
+    />
+  )
 }
