@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { api } from '../lib/api'
 import { formatINR, daysRemaining, urgencyLevel, urgencyColor, formatDate } from '../lib/formatters'
-import { computeShopperStats, getTrustScoreColor, getTrustScoreLabel } from '../lib/shopperScore'
+import { getRewardsSummary } from '../lib/goodShopper'
 
 export default function Dashboard({ userId, onDisconnect, onSettings }) {
   const [orders, setOrders]       = useState([])
@@ -11,6 +11,7 @@ export default function Dashboard({ userId, onDisconnect, onSettings }) {
   const [selected, setSelected]   = useState(null)
   const [tab, setTab]             = useState('active')
   const [syncResult, setSyncResult] = useState(null)
+  const [showRewards, setShowRewards] = useState(false)
 
   const loadOrders = useCallback(() => {
     setLoading(true)
@@ -69,8 +70,8 @@ export default function Dashboard({ userId, onDisconnect, onSettings }) {
   const savedOrders = allOrders.filter(o => o.status === 'returned')
   const moneySaved = savedOrders.reduce((sum, o) => sum + (o.price || 0), 0)
 
-  // Good Shopper stats
-  const shopperStats = computeShopperStats(allOrders)
+  // Good Shopper Rewards
+  const rewards = getRewardsSummary(allOrders)
 
   return (
     <div className="min-h-screen bg-vault-black flex flex-col">
@@ -81,10 +82,10 @@ export default function Dashboard({ userId, onDisconnect, onSettings }) {
         <div className="flex items-center gap-2">
           <button onClick={handleSync} disabled={syncing}
             className="bg-vault-card card-border text-vault-muted px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 active:scale-95 transition-transform">
-            <span className={syncing ? 'animate-spin inline-block' : ''}>↻</span>
-            {syncing ? 'Syncing…' : 'Sync'}
+            <span className={syncing ? 'animate-spin inline-block' : ''}>\u21bb</span>
+            {syncing ? 'Syncing\u2026' : 'Sync'}
           </button>
-          <button onClick={onSettings} className="text-vault-muted text-sm px-2 py-1.5 active:scale-95 transition-transform">⚙</button>
+          <button onClick={onSettings} className="text-vault-muted text-sm px-2 py-1.5 active:scale-95 transition-transform">\u2699</button>
         </div>
       </header>
 
@@ -92,25 +93,23 @@ export default function Dashboard({ userId, onDisconnect, onSettings }) {
         <div className="mx-4 mt-2 rounded-xl bg-vault-card card-border px-3 py-2 text-center text-xs text-vault-muted animate-fade-in">{syncResult}</div>
       )}
 
-      {/* Good Shopper Card */}
-      <div className="mx-4 mt-4 bg-vault-card card-border rounded-2xl px-4 py-3 flex items-center gap-4">
-        <div className="relative flex-shrink-0">
-          <TrustScoreRing score={shopperStats.trustScore} size={56} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-base">{shopperStats.badge.icon}</span>
-            <p className="text-vault-text font-semibold text-sm">{shopperStats.badge.name}</p>
-          </div>
-          <div className="flex items-center gap-3 mt-1">
-            <span className="text-vault-muted text-[10px]">{shopperStats.keepRate}% keep rate</span>
-            {shopperStats.streak > 0 && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-orange-900/30 text-orange-400">🔥 {shopperStats.streak} streak</span>
-            )}
-            <span className="text-vault-muted text-[10px]">{formatINR(shopperStats.totalValueKept)} kept</span>
+      {/* Good Shopper Badge — tap to expand */}
+      <button onClick={() => setShowRewards(!showRewards)}
+        className="mx-4 mt-4 bg-vault-card card-border rounded-2xl px-4 py-3 flex items-center justify-between active:scale-[0.98] transition-transform">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">{rewards.emoji}</span>
+          <div className="text-left">
+            <p className="text-vault-text font-semibold text-sm">{rewards.label} Shopper</p>
+            <p className="text-vault-muted text-[10px]">Trust Score: {rewards.score}/100{rewards.streak > 0 ? ` \u00b7 ${rewards.streak} streak` : ''}</p>
           </div>
         </div>
-      </div>
+        <div className="flex items-center gap-2">
+          {rewards.keepRate > 0 && <span className="text-vault-safe text-xs font-medium">{rewards.keepRate}% kept</span>}
+          <span className="text-vault-muted text-sm">{showRewards ? '\u25b2' : '\u25bc'}</span>
+        </div>
+      </button>
+
+      {showRewards && <RewardsPanel rewards={rewards} />}
 
       {/* Summary Stats */}
       <div className="grid grid-cols-3 gap-2 px-4 mt-3">
@@ -177,15 +176,15 @@ export default function Dashboard({ userId, onDisconnect, onSettings }) {
           </div>
         ) : orders.length === 0 ? (
           <div className="flex flex-col items-center py-16 gap-4 animate-fade-in">
-            <span className="text-5xl">{tab === 'returned' ? '🎉' : tab === 'expired' ? '⏰' : '📬'}</span>
+            <span className="text-5xl">{tab === 'returned' ? '\ud83c\udf89' : tab === 'expired' ? '\u23f0' : '\ud83d\udcec'}</span>
             <p className="text-vault-muted text-center text-sm">
               {tab === 'active' ? 'No active orders tracked yet.\nTap Sync to import from Gmail.'
                 : tab === 'returned' ? 'No returned orders yet.'
-                : tab === 'expired' ? 'No expired orders — nice!' : 'No orders found.'}
+                : tab === 'expired' ? 'No expired orders \u2014 nice!' : 'No orders found.'}
             </p>
             {tab === 'active' && (
               <button onClick={handleSync} disabled={syncing} className="mt-2 bg-vault-gold text-vault-black px-6 py-2 rounded-xl font-semibold text-sm active:scale-95 transition-transform">
-                {syncing ? 'Syncing…' : '📧 Sync Gmail Now'}
+                {syncing ? 'Syncing\u2026' : '\ud83d\udce7 Sync Gmail Now'}
               </button>
             )}
           </div>
@@ -194,6 +193,7 @@ export default function Dashboard({ userId, onDisconnect, onSettings }) {
         )}
       </div>
 
+      {/* Order detail bottom sheet */}
       {selected && (
         <OrderSheet
           order={selected}
@@ -207,29 +207,74 @@ export default function Dashboard({ userId, onDisconnect, onSettings }) {
   )
 }
 
-// Trust Score Ring — circular progress indicator
-function TrustScoreRing({ score, size = 56 }) {
-  const strokeWidth = 4
-  const r = (size - strokeWidth) / 2
-  const circ = 2 * Math.PI * r
-  const dash = (score / 100) * circ
-  const color = getTrustScoreColor(score)
-  const label = getTrustScoreLabel(score)
+
+function RewardsPanel({ rewards }) {
+  const tiers = [
+    { label: 'Bronze', min: 50, color: '#CD7F32' },
+    { label: 'Silver', min: 65, color: '#C0C0C0' },
+    { label: 'Gold', min: 80, color: '#D4AF37' },
+    { label: 'Platinum', min: 90, color: '#E5E4E2' },
+  ]
 
   return (
-    <div className="relative" style={{ width: size, height: size }}>
-      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#2A2A2A" strokeWidth={strokeWidth} />
-        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={strokeWidth}
-          strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
-          style={{ transition: 'stroke-dasharray 0.8s ease' }} />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="font-bold text-sm" style={{ color }}>{score}</span>
+    <div className="mx-4 mt-2 bg-vault-card card-border rounded-2xl px-4 py-4 flex flex-col gap-4 animate-fade-in">
+      {/* Trust Score Bar */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-vault-muted text-xs">Trust Score</p>
+          <p className="text-vault-text font-bold text-lg">{rewards.score}<span className="text-vault-muted text-xs font-normal">/100</span></p>
+        </div>
+        <div className="w-full h-2.5 bg-vault-border rounded-full overflow-hidden">
+          <div className="h-full rounded-full transition-all duration-700"
+            style={{ width: `${rewards.score}%`, background: rewards.color }} />
+        </div>
+        <div className="flex justify-between mt-1">
+          {tiers.map(t => (
+            <span key={t.label} className="text-[9px]" style={{ color: rewards.score >= t.min ? t.color : '#444' }}>{t.label}</span>
+          ))}
+        </div>
       </div>
+
+      {/* Stats Row */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="bg-vault-black rounded-xl px-3 py-2 text-center card-border">
+          <p className="text-vault-safe font-bold text-lg">{rewards.keptCount}</p>
+          <p className="text-vault-muted text-[10px]">Kept</p>
+        </div>
+        <div className="bg-vault-black rounded-xl px-3 py-2 text-center card-border">
+          <p className="text-vault-urgent font-bold text-lg">{rewards.returnedCount}</p>
+          <p className="text-vault-muted text-[10px]">Returned</p>
+        </div>
+        <div className="bg-vault-black rounded-xl px-3 py-2 text-center card-border">
+          <p className="font-bold text-lg" style={{ color: rewards.color }}>{rewards.keepRate}%</p>
+          <p className="text-vault-muted text-[10px]">Keep Rate</p>
+        </div>
+      </div>
+
+      {/* Streak */}
+      {rewards.streak > 0 && (
+        <div className="flex items-center gap-2 bg-vault-black rounded-xl px-3 py-2 card-border">
+          <span className="text-lg">{rewards.streakMsg.fire ? '\ud83d\udd25' : '\u2b50'}</span>
+          <div>
+            <p className="text-vault-text text-sm font-medium">{rewards.streak} order streak!</p>
+            <p className="text-vault-muted text-xs">{rewards.streakMsg.text}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Next tier hint */}
+      {rewards.score < 90 && (
+        <p className="text-vault-muted text-[10px] text-center">
+          {rewards.score < 50 ? 'Keep more items to build your trust score'
+            : rewards.score < 65 ? `${65 - rewards.score} more points to Silver`
+            : rewards.score < 80 ? `${80 - rewards.score} more points to Gold`
+            : `${90 - rewards.score} more points to Platinum`}
+        </p>
+      )}
     </div>
   )
 }
+
 
 function OrderCard({ order, onTap }) {
   const days = daysRemaining(order.return_deadline)
@@ -238,9 +283,9 @@ function OrderCard({ order, onTap }) {
   const statusBadge = order.status === 'returned'
     ? { text: 'Returned', bg: 'bg-green-900/30', textColor: 'text-green-400' }
     : order.status === 'kept'
-    ? { text: '⭐ Kept', bg: 'bg-blue-900/30', textColor: 'text-blue-400' }
+    ? { text: '\u2713 Kept', bg: 'bg-blue-900/30', textColor: 'text-blue-400' }
     : order.status === 'expired'
-    ? { text: 'Expired — Kept', bg: 'bg-vault-border', textColor: 'text-vault-muted' }
+    ? { text: 'Kept (expired)', bg: 'bg-vault-border', textColor: 'text-vault-muted' }
     : null
   const cardClass = order.status === 'expired' || order.status === 'returned' || order.status === 'kept'
     ? 'opacity-60 card-border'
@@ -257,12 +302,12 @@ function OrderCard({ order, onTap }) {
             {statusBadge && <span className={`text-[10px] px-2 py-0.5 rounded-full ${statusBadge.bg} ${statusBadge.textColor}`}>{statusBadge.text}</span>}
           </div>
           <p className="text-vault-text font-medium text-sm truncate">{order.item_name}</p>
-          <p className="text-vault-muted text-xs mt-0.5">{formatINR(order.price)} · {formatDate(order.order_date)}</p>
+          <p className="text-vault-muted text-xs mt-0.5">{formatINR(order.price)} \u00b7 {formatDate(order.order_date)}</p>
         </div>
         <div className="flex flex-col items-center flex-shrink-0">
-          {order.status === 'returned' ? <span className="text-green-400 text-xl">✓</span>
-            : order.status === 'kept' ? <span className="text-blue-400 text-xl">⭐</span>
-            : days === null ? <span className="text-vault-muted text-xs">—</span>
+          {order.status === 'returned' ? <span className="text-green-400 text-xl">\u21a9</span>
+            : order.status === 'kept' ? <span className="text-blue-400 text-xl">\u2713</span>
+            : days === null ? <span className="text-vault-muted text-xs">\u2014</span>
             : days < 0 ? <span className="text-vault-muted text-xs font-medium">Expired</span>
             : <><span className="text-2xl font-bold" style={{ color }}>{days}</span><span className="text-[10px]" style={{ color: '#A0A0A0' }}>day{days !== 1 ? 's' : ''}</span></>}
           {order.status === 'active' && <CountdownArc days={days} color={color} />}
@@ -271,6 +316,7 @@ function OrderCard({ order, onTap }) {
     </button>
   )
 }
+
 
 function CountdownArc({ days, color }) {
   if (days === null || days < 0) return null
@@ -283,6 +329,7 @@ function CountdownArc({ days, color }) {
     </svg>
   )
 }
+
 
 function OrderSheet({ order, userId, onClose, onKept, onReturned }) {
   const days = daysRemaining(order.return_deadline)
@@ -308,7 +355,7 @@ function OrderSheet({ order, userId, onClose, onKept, onReturned }) {
         <div className="grid grid-cols-2 gap-3">
           {[
             { label: 'Order Value', value: formatINR(order.price), highlight: true },
-            { label: 'Days Remaining', value: days === null ? '—' : days < 0 ? 'Expired' : `${days} days`, color },
+            { label: 'Days Remaining', value: days === null ? '\u2014' : days < 0 ? 'Expired' : `${days} days`, color },
             { label: 'Order Date', value: formatDate(order.order_date) },
             { label: 'Return Deadline', value: formatDate(order.return_deadline) },
             order.category && { label: 'Category', value: order.category },
@@ -323,7 +370,7 @@ function OrderSheet({ order, userId, onClose, onKept, onReturned }) {
 
         {order.is_replacement_only && (
           <div className="bg-yellow-900/20 border border-yellow-700/30 rounded-xl px-4 py-3 text-sm text-yellow-400">
-            ⚠️ This item is <strong>replacement only</strong> — no cash refund available.
+            \u26a0\ufe0f This item is <strong>replacement only</strong> \u2014 no cash refund available.
           </div>
         )}
 
@@ -331,13 +378,13 @@ function OrderSheet({ order, userId, onClose, onKept, onReturned }) {
         <button onClick={() => setShowEvidence(!showEvidence)}
           className="w-full bg-vault-black card-border rounded-2xl px-4 py-3 flex items-center justify-between active:scale-[0.98] transition-transform">
           <div className="flex items-center gap-3">
-            <span className="text-lg">🔒</span>
+            <span className="text-lg">\ud83d\udd12</span>
             <div className="text-left">
               <p className="text-vault-text font-medium text-sm">Evidence Locker</p>
               <p className="text-vault-muted text-xs">Photos & videos for dispute proof</p>
             </div>
           </div>
-          <span className="text-vault-muted text-sm">{showEvidence ? '▲' : '▼'}</span>
+          <span className="text-vault-muted text-sm">{showEvidence ? '\u25b2' : '\u25bc'}</span>
         </button>
 
         {showEvidence && <EvidenceLocker orderId={order.id} userId={userId} />}
@@ -346,38 +393,31 @@ function OrderSheet({ order, userId, onClose, onKept, onReturned }) {
           <div className="flex flex-col gap-3">
             <button onClick={() => onReturned(order.id)}
               className="w-full bg-vault-gold text-vault-black py-4 rounded-2xl font-semibold text-base active:scale-95 transition-transform">
-              📦 I Returned This
+              \ud83d\udce6 I Returned This
             </button>
             <button onClick={() => onKept(order.id)}
               className="w-full bg-vault-card card-border text-vault-muted py-4 rounded-2xl font-semibold text-base active:scale-95 transition-transform">
-              ⭐ I'm Keeping This
+              \u2713 I'm Keeping This
             </button>
           </div>
         )}
 
-        {order.status === 'kept' && (
-          <div className="bg-blue-900/20 border border-blue-700/30 rounded-2xl px-4 py-4 text-center animate-fade-in">
-            <span className="text-2xl">⭐</span>
-            <p className="text-blue-400 font-semibold text-sm mt-1">Good Shopper!</p>
-            <p className="text-vault-muted text-xs mt-0.5">You kept this item. Your trust score just went up.</p>
-          </div>
-        )}
-
-        {order.status === 'returned' && (
-          <div className="bg-green-900/20 text-green-400 text-center py-3 rounded-2xl text-sm font-medium">
-            ✓ Returned successfully
-          </div>
-        )}
-
-        {order.status === 'expired' && (
-          <div className="bg-vault-card text-vault-muted text-center py-3 rounded-2xl text-sm font-medium">
-            Return window expired — counted as kept
+        {order.status !== 'active' && (
+          <div className={`text-center py-3 rounded-2xl text-sm font-medium ${
+            order.status === 'returned' ? 'bg-green-900/20 text-green-400'
+            : order.status === 'kept' ? 'bg-blue-900/20 text-blue-400'
+            : 'bg-vault-card text-vault-muted'
+          }`}>
+            {order.status === 'returned' ? '\u21a9 Returned successfully'
+              : order.status === 'kept' ? '\u2713 You\'re keeping this item \u2014 Good Shopper!'
+              : `Status: ${order.status}`}
           </div>
         )}
       </div>
     </>
   )
 }
+
 
 function EvidenceLocker({ orderId, userId }) {
   const [evidence, setEvidence] = useState([])
@@ -386,36 +426,33 @@ function EvidenceLocker({ orderId, userId }) {
   const [error, setError] = useState(null)
   const fileRef = useRef(null)
 
-  useEffect(() => {
-    loadEvidence()
-  }, [orderId])
+  useEffect(() => { loadEvidence() }, [orderId])
 
   async function loadEvidence() {
     setLoading(true)
     try {
       const data = await api.getEvidence(orderId, userId)
       setEvidence(data.evidence || [])
-    } catch(e) {
-      console.error(e)
-    } finally {
-      setLoading(false)
-    }
+    } catch(e) { console.error(e) }
+    finally { setLoading(false) }
   }
 
   async function handleFileSelect(e) {
     const file = e.target.files?.[0]
     if (!file) return
-    const maxSize = 10 * 1024 * 1024
-    if (file.size > maxSize) { setError('File too large (max 10MB)'); setTimeout(() => setError(null), 3000); return }
+    if (file.size > 10 * 1024 * 1024) {
+      setError('File too large (max 10MB)'); setTimeout(() => setError(null), 3000); return
+    }
     const allowed = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/quicktime']
-    if (!allowed.includes(file.type)) { setError('Only JPEG, PNG, WebP, MP4 allowed'); setTimeout(() => setError(null), 3000); return }
-    setUploading(true)
-    setError(null)
+    if (!allowed.includes(file.type)) {
+      setError('Only JPEG, PNG, WebP, MP4 allowed'); setTimeout(() => setError(null), 3000); return
+    }
+    setUploading(true); setError(null)
     try {
       const base64 = await fileToBase64(file)
       await api.uploadEvidence(orderId, userId, base64, file.type, file.name)
       await loadEvidence()
-    } catch(e) { console.error(e); setError('Upload failed. Try again.'); setTimeout(() => setError(null), 3000) }
+    } catch(e) { console.error(e); setError('Upload failed'); setTimeout(() => setError(null), 3000) }
     finally { setUploading(false); if (fileRef.current) fileRef.current.value = '' }
   }
 
@@ -429,23 +466,36 @@ function EvidenceLocker({ orderId, userId }) {
       <input ref={fileRef} type="file" accept="image/*,video/mp4" capture="environment" onChange={handleFileSelect} className="hidden" />
       <button onClick={() => fileRef.current?.click()} disabled={uploading}
         className="w-full bg-vault-black card-border rounded-xl px-4 py-3 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform">
-        {uploading ? (<><div className="w-4 h-4 border-2 border-vault-gold border-t-transparent rounded-full animate-spin" /><span className="text-vault-muted text-sm">Uploading…</span></>)
-          : (<><span className="text-lg">📷</span><span className="text-vault-gold text-sm font-medium">Add Photo / Video</span></>)}
+        {uploading ? (
+          <><div className="w-4 h-4 border-2 border-vault-gold border-t-transparent rounded-full animate-spin" /><span className="text-vault-muted text-sm">Uploading\u2026</span></>
+        ) : (
+          <><span className="text-lg">\ud83d\udcf7</span><span className="text-vault-gold text-sm font-medium">Add Photo / Video</span></>
+        )}
       </button>
       {error && <p className="text-red-400 text-xs text-center">{error}</p>}
-      {loading ? (<div className="flex justify-center py-4"><div className="w-5 h-5 border-2 border-vault-gold border-t-transparent rounded-full animate-spin" /></div>)
-        : evidence.length === 0 ? (<p className="text-vault-muted text-xs text-center py-2">No evidence yet. Add photos of unboxing, product condition, or packaging.</p>)
-        : (<div className="grid grid-cols-3 gap-2">{evidence.map(item => (
+      {loading ? (
+        <div className="flex justify-center py-4"><div className="w-5 h-5 border-2 border-vault-gold border-t-transparent rounded-full animate-spin" /></div>
+      ) : evidence.length === 0 ? (
+        <p className="text-vault-muted text-xs text-center py-2">No evidence uploaded yet.</p>
+      ) : (
+        <div className="grid grid-cols-3 gap-2">
+          {evidence.map(item => (
             <div key={item.id} className="relative group">
-              {item.file_type?.startsWith('video')
-                ? <div className="w-full aspect-square bg-vault-black rounded-xl card-border flex items-center justify-center"><span className="text-2xl">🎬</span></div>
-                : <img src={item.file_url} alt="Evidence" className="w-full aspect-square object-cover rounded-xl card-border" />}
+              {item.file_type?.startsWith('video') ? (
+                <div className="w-full aspect-square bg-vault-black rounded-xl card-border flex items-center justify-center"><span className="text-2xl">\ud83c\udfac</span></div>
+              ) : (
+                <img src={item.file_url} alt="Evidence" className="w-full aspect-square object-cover rounded-xl card-border" />
+              )}
               <button onClick={(e) => { e.stopPropagation(); handleDelete(item.id) }}
-                className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity">×</button>
-              <p className="text-vault-muted text-[9px] mt-1 text-center">{new Date(item.uploaded_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
+                className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity">\u00d7</button>
+              <p className="text-vault-muted text-[9px] mt-1 text-center">
+                {new Date(item.uploaded_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+              </p>
             </div>
-          ))}</div>)}
-      <p className="text-vault-muted text-[10px] text-center">🔒 Evidence is encrypted and only visible to you. Max 10MB per file.</p>
+          ))}
+        </div>
+      )}
+      <p className="text-vault-muted text-[10px] text-center">\ud83d\udd12 Evidence is encrypted and only visible to you. Max 10MB per file.</p>
     </div>
   )
 }
