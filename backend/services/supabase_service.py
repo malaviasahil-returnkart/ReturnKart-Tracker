@@ -1,9 +1,7 @@
 """
 RETURNKART.IN — SUPABASE SERVICE
-Task #15: Central DB layer. All Supabase reads/writes go through here.
+Central DB layer. All Supabase reads/writes go through here.
 No other file should import supabase directly.
-
-Rule: one function per DB operation. Never write raw queries outside this file.
 """
 from datetime import datetime, date, timezone, timedelta
 from typing import Optional
@@ -31,7 +29,6 @@ async def save_gmail_token(
     token_expiry: Optional[datetime],
     scope: str,
 ) -> dict:
-    """Upsert Gmail OAuth tokens for a user."""
     client = get_client()
     data = {
         "user_id": user_id,
@@ -41,29 +38,17 @@ async def save_gmail_token(
         "scope": scope,
         "updated_at": datetime.now(IST).isoformat(),
     }
-    result = (
-        client.table("gmail_tokens")
-        .upsert(data, on_conflict="user_id")
-        .execute()
-    )
+    result = client.table("gmail_tokens").upsert(data, on_conflict="user_id").execute()
     return result.data[0] if result.data else {}
 
 
 async def get_gmail_token(user_id: str) -> Optional[dict]:
-    """Retrieve Gmail token for a user. Returns None if not connected."""
     client = get_client()
-    result = (
-        client.table("gmail_tokens")
-        .select("*")
-        .eq("user_id", user_id)
-        .limit(1)
-        .execute()
-    )
+    result = client.table("gmail_tokens").select("*").eq("user_id", user_id).limit(1).execute()
     return result.data[0] if result.data else None
 
 
 async def delete_gmail_token(user_id: str) -> None:
-    """Delete Gmail token — used when user revokes access."""
     client = get_client()
     client.table("gmail_tokens").delete().eq("user_id", user_id).execute()
 
@@ -73,33 +58,18 @@ async def delete_gmail_token(user_id: str) -> None:
 # ─────────────────────────────────────────────
 
 async def upsert_order(order: OrderCreate) -> dict:
-    """
-    Insert or update an order.
-    UNIQUE(user_id, order_id) prevents duplicates automatically.
-    """
     client = get_client()
     data = order.model_dump()
-    # Convert date objects to ISO strings for Supabase
     for key, val in data.items():
         if isinstance(val, (date, datetime)):
             data[key] = val.isoformat()
-    result = (
-        client.table("orders")
-        .upsert(data, on_conflict="user_id,order_id")
-        .execute()
-    )
+    result = client.table("orders").upsert(data, on_conflict="user_id,order_id").execute()
     return result.data[0] if result.data else {}
 
 
 async def get_orders_by_user(user_id: str, status: Optional[str] = None) -> list:
-    """Get all orders for a user, optionally filtered by status."""
     client = get_client()
-    query = (
-        client.table("orders")
-        .select("*")
-        .eq("user_id", user_id)
-        .order("return_deadline", desc=False)
-    )
+    query = client.table("orders").select("*").eq("user_id", user_id).order("return_deadline", desc=False)
     if status:
         query = query.eq("status", status)
     result = query.execute()
@@ -107,23 +77,21 @@ async def get_orders_by_user(user_id: str, status: Optional[str] = None) -> list
 
 
 async def update_order_status(order_id: str, user_id: str, status: str) -> dict:
-    """Update order status (kept / returned / expired)."""
     client = get_client()
     result = (
         client.table("orders")
         .update({"status": status})
         .eq("id", order_id)
-        .eq("user_id", user_id)  # RLS double-check
+        .eq("user_id", user_id)
         .execute()
     )
     return result.data[0] if result.data else {}
 
 
 async def get_expiring_soon(user_id: str, days: int = 3) -> list:
-    """Get orders whose return deadline is within N days. Used for urgent alerts."""
     client = get_client()
     today = date.today()
-    cutoff = date.today().replace(day=today.day + days)
+    cutoff = today + timedelta(days=days)
     result = (
         client.table("orders")
         .select("*")
@@ -134,6 +102,50 @@ async def get_expiring_soon(user_id: str, days: int = 3) -> list:
         .execute()
     )
     return result.data or []
+
+
+# ─────────────────────────────────────────────
+# EVIDENCE LOCKER
+# ─────────────────────────────────────────────
+
+async def save_evidence(
+    order_id: str,
+    user_id: str,
+    file_url: str,
+    file_type: str,
+    file_size_bytes: int,
+) -> dict:
+    """Save evidence file metadata to evidence_locker table."""
+    client = get_client()
+    data = {
+        "order_id": order_id,
+        "user_id": user_id,
+        "file_url": file_url,
+        "file_type": file_type,
+        "file_size_bytes": file_size_bytes,
+    }
+    result = client.table("evidence_locker").insert(data).execute()
+    return result.data[0] if result.data else {}
+
+
+async def get_evidence_by_order(order_id: str, user_id: str) -> list:
+    """Get all evidence files for a specific order."""
+    client = get_client()
+    result = (
+        client.table("evidence_locker")
+        .select("*")
+        .eq("order_id", order_id)
+        .eq("user_id", user_id)
+        .order("uploaded_at", desc=True)
+        .execute()
+    )
+    return result.data or []
+
+
+async def delete_evidence(evidence_id: str, user_id: str) -> None:
+    """Delete a single evidence file."""
+    client = get_client()
+    client.table("evidence_locker").delete().eq("id", evidence_id).eq("user_id", user_id).execute()
 
 
 # ─────────────────────────────────────────────
@@ -148,7 +160,6 @@ async def log_consent(
     ip_address: Optional[str] = None,
     user_agent: Optional[str] = None,
 ) -> dict:
-    """Write an immutable consent event to the audit log."""
     client = get_client()
     data = {
         "user_id": user_id,

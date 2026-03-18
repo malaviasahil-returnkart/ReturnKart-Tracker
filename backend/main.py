@@ -14,6 +14,7 @@ from backend.config import PORT, FRONTEND_URL, ENV
 from backend.api.health import router as health_router
 from backend.api.auth import router as auth_router
 from backend.api.orders import router as orders_router
+from backend.api.evidence import router as evidence_router
 
 app = FastAPI(
     title="ReturnKart.in API",
@@ -25,25 +26,24 @@ app = FastAPI(
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_URL, "https://return-kart-tracker.replit.app"],
+    allow_origins=[FRONTEND_URL, "https://return-kart-tracker.replit.app", "https://returnkart.in"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # API Routes
-app.include_router(health_router, prefix="/api")
-app.include_router(auth_router,   prefix="/api/auth",   tags=["auth"])
-app.include_router(orders_router, prefix="/api/orders", tags=["orders"])
+app.include_router(health_router,   prefix="/api")
+app.include_router(auth_router,     prefix="/api/auth",     tags=["auth"])
+app.include_router(orders_router,   prefix="/api/orders",   tags=["orders"])
+app.include_router(evidence_router, prefix="/api/evidence", tags=["evidence"])
 
 # Serve React frontend from /frontend/dist
 DIST = Path(__file__).parent.parent / "frontend" / "dist"
 
 if DIST.exists():
-    # Serve static assets (JS, CSS, images)
     app.mount("/assets", StaticFiles(directory=str(DIST / "assets")), name="assets")
 
-    # Catch-all: serve index.html for all non-API routes (SPA routing)
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):
         index = DIST / "index.html"
@@ -55,5 +55,5 @@ else:
 
 if __name__ == "__main__":
     print(f"ReturnKart backend starting on port {PORT} [{ENV}]")
-    print(f"Frontend dist: {'found' if DIST.exists() else 'NOT FOUND — run: cd frontend && npm run build'}")
+    print(f"Frontend dist: {'found' if DIST.exists() else 'NOT FOUND'}")
     uvicorn.run("backend.main:app", host="0.0.0.0", port=PORT, reload=(ENV != "production"))

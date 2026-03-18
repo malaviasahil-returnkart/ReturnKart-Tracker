@@ -37,4 +37,20 @@ export const api = {
     method: 'POST',
     body: JSON.stringify({ user_id: userId }),
   }),
+
+  // Evidence Locker
+  getEvidence: (orderId, userId) => request(`/api/evidence/${orderId}?user_id=${userId}`),
+  uploadEvidence: (orderId, userId, fileData, fileType, fileName) => request('/api/evidence/upload', {
+    method: 'POST',
+    body: JSON.stringify({
+      user_id: userId,
+      order_id: orderId,
+      file_data: fileData,
+      file_type: fileType,
+      file_name: fileName,
+    }),
+  }),
+  deleteEvidence: (evidenceId, userId) => request(`/api/evidence/${evidenceId}?user_id=${userId}`, {
+    method: 'DELETE',
+  }),
 }
