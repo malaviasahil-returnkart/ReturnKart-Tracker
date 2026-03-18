@@ -1,89 +1,79 @@
 /**
  * ReturnKart — Good Shopper Rewards Engine
- * Calculates trust score, streak, and badge from order history.
- * Pure client-side — no new API calls or DB tables needed.
- *
- * Trust Score (0-100):
- *   Base: 50 (new user)
- *   +5 per order kept (expired without return)
- *   +3 per order manually marked as "kept"
- *   -10 per returned order
- *
- * Streak: consecutive non-returned orders from most recent
- *
- * Badges: New → Bronze → Silver → Gold → Platinum
+ * Calculates trust score, badges, streaks, and keep rate from order data.
+ * Pure frontend calculation — no backend or DB needed.
  */
 
-export function calculateTrustScore(orders) {
-  if (!orders || orders.length === 0) return { score: 50, label: 'New', emoji: '🆕' }
+export function getRewardsSummary(allOrders) {
+  // Resolved = orders where user made a decision
+  const resolved = allOrders.filter(o => ['kept', 'returned', 'expired'].includes(o.status))
+  const kept = resolved.filter(o => o.status === 'kept' || o.status === 'expired')
+  const returned = resolved.filter(o => o.status === 'returned')
+  const resolvedCount = resolved.length
 
-  let score = 50
+  // Keep rate (expired counts as kept)
+  const keepRate = resolvedCount > 0 ? Math.round((kept.length / resolvedCount) * 100) : 0
 
-  orders.forEach(order => {
-    if (order.status === 'kept') score += 3
-    else if (order.status === 'expired') score += 5
-    else if (order.status === 'returned') score -= 10
-    // 'active' orders don't affect score yet
-  })
-
-  // Clamp 0-100
-  score = Math.max(0, Math.min(100, score))
-
-  return { score, ...getBadge(score) }
-}
-
-export function getBadge(score) {
-  if (score >= 90) return { label: 'Platinum', emoji: '💎', color: '#E5E4E2', tier: 4 }
-  if (score >= 80) return { label: 'Gold', emoji: '🥇', color: '#D4AF37', tier: 3 }
-  if (score >= 65) return { label: 'Silver', emoji: '🥈', color: '#C0C0C0', tier: 2 }
-  if (score >= 50) return { label: 'Bronze', emoji: '🥉', color: '#CD7F32', tier: 1 }
-  return { label: 'New', emoji: '🆕', color: '#A0A0A0', tier: 0 }
-}
-
-export function calculateStreak(orders) {
-  if (!orders || orders.length === 0) return 0
-
-  // Sort by order_date descending (most recent first)
-  const sorted = [...orders]
-    .filter(o => o.status !== 'active') // only resolved orders count
-    .sort((a, b) => new Date(b.order_date) - new Date(a.order_date))
-
+  // Calculate streak (consecutive kept/expired, most recent first)
+  const sortedResolved = [...resolved].sort((a, b) =>
+    new Date(b.order_date) - new Date(a.order_date)
+  )
   let streak = 0
-  for (const order of sorted) {
+  for (const order of sortedResolved) {
     if (order.status === 'kept' || order.status === 'expired') {
       streak++
     } else {
-      break // streak broken by a return
+      break
     }
   }
-  return streak
-}
 
-export function getStreakMessage(streak) {
-  if (streak >= 10) return { text: 'Legendary keeper! 🏆', fire: true }
-  if (streak >= 7) return { text: 'On fire! 🔥🔥🔥', fire: true }
-  if (streak >= 5) return { text: 'Great streak! 🔥🔥', fire: true }
-  if (streak >= 3) return { text: 'Building momentum! 🔥', fire: false }
-  if (streak >= 1) return { text: 'Good start!', fire: false }
-  return { text: '', fire: false }
-}
+  // Trust score formula
+  // Base: keep rate (0-70 points)
+  // Streak bonus: +2 per streak (max +20)
+  // Volume bonus: +1 per 5 orders (max +10)
+  const baseScore = Math.round(keepRate * 0.7)
+  const streakBonus = Math.min(streak * 2, 20)
+  const volumeBonus = Math.min(Math.floor(allOrders.length / 5), 10)
+  const score = Math.min(baseScore + streakBonus + volumeBonus, 100)
 
-export function getRewardsSummary(orders) {
-  const trustData = calculateTrustScore(orders)
-  const streak = calculateStreak(orders)
-  const streakMsg = getStreakMessage(streak)
+  // Badge tier
+  let emoji, label, color
+  if (score >= 90) {
+    emoji = '💎'; label = 'Platinum'; color = '#E5E4E2'
+  } else if (score >= 80) {
+    emoji = '🏆'; label = 'Gold'; color = '#D4AF37'
+  } else if (score >= 65) {
+    emoji = '🥈'; label = 'Silver'; color = '#C0C0C0'
+  } else if (score >= 50) {
+    emoji = '🥉'; label = 'Bronze'; color = '#CD7F32'
+  } else if (allOrders.length > 0) {
+    emoji = '⭐'; label = 'Rising'; color = '#FBBF24'
+  } else {
+    emoji = '🌱'; label = 'New'; color = '#A0A0A0'
+  }
 
-  const keptCount = orders.filter(o => o.status === 'kept' || o.status === 'expired').length
-  const returnedCount = orders.filter(o => o.status === 'returned').length
-  const totalResolved = keptCount + returnedCount
-  const keepRate = totalResolved > 0 ? Math.round((keptCount / totalResolved) * 100) : 100
+  // Streak message
+  let streakMsg = { fire: false, text: '' }
+  if (streak >= 10) {
+    streakMsg = { fire: true, text: 'Incredible! Brands love shoppers like you.' }
+  } else if (streak >= 5) {
+    streakMsg = { fire: true, text: 'Amazing streak! Keep it going.' }
+  } else if (streak >= 3) {
+    streakMsg = { fire: false, text: 'Nice streak! Building trust.' }
+  } else if (streak >= 1) {
+    streakMsg = { fire: false, text: 'Good start! Every kept order counts.' }
+  }
 
   return {
-    ...trustData,
+    score,
+    emoji,
+    label,
+    color,
+    keepRate,
     streak,
     streakMsg,
-    keptCount,
-    returnedCount,
-    keepRate,
+    keptCount: kept.length,
+    returnedCount: returned.length,
+    totalValueKept: kept.reduce((sum, o) => sum + (o.price || 0), 0),
   }
 }
