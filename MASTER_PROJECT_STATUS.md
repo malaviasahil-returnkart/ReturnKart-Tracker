@@ -1,7 +1,7 @@
 # 📦 RETURNKART.IN — MASTER PROJECT STATUS
-**Last Updated:** 2026-03-14
-**Current Phase:** Pre-Kickoff (Phase 1 not yet started)
-**Overall Progress:** 0 / 45 tasks complete
+**Last Updated:** 2026-03-18
+**Current Phase:** Phase 2 IN PROGRESS
+**Overall Progress:** 22 / 44 tasks complete
 
 ---
 
@@ -18,170 +18,192 @@
 
 ---
 
-## 🏗️ TECH STACK & ARCHITECTURE
+## 🏗️ TECH STACK
 
 | Layer | Technology |
-|---|---|
-| Frontend | React (Next.js or Vite) + Tailwind CSS |
-| Backend | Python |
-| Database | Supabase (PostgreSQL) |
-| AI Engine | Google Gemini 1.5 Flash (via google-genai) |
-| Primary Data Pipe | Gmail API (OAuth sync — iOS/Android) |
-| Secondary Data Pipe | Android Notification Listener (Bharat mobile-first) |
+|-------|-----------|
+| Frontend | React (Vite) + Tailwind CSS |
+| Backend | Python (FastAPI) — **LIVE** |
+| Database | Supabase (PostgreSQL) — **LIVE** |
+| AI Engine | Google Gemini 1.5 Flash |
+| Primary Data Pipe | Gmail API (OAuth) |
 | Orchestration | Replit + Claude Desktop (via MCP) |
 
 ---
 
-## 🎨 DESIGN SYSTEM — "Premium Vault" Aesthetic
+## 🎨 DESIGN SYSTEM — "Premium Vault"
 
 | Element | Spec |
-|---|---|
-| Background | Pitch Black #0A0A0A |
-| Cards/Containers | Dark Charcoal #1A1A1A + subtle rounded corners |
-| Primary Accent | Premium Gold #D4AF37 (buttons, highlights, urgent borders) |
-| Typography | Inter / Roboto — White #FFFFFF primary, Gray #A0A0A0 secondary |
+|---------|------|
+| Background | Pitch Black `#0A0A0A` |
+| Cards | Dark Charcoal `#1A1A1A` |
+| Accent | Premium Gold `#D4AF37` |
+| Typography | Inter/Roboto — White `#FFFFFF`, Gray `#A0A0A0` |
 
 ---
 
-## 🗄️ SUPABASE DATABASE SCHEMA
+## 🌐 LIVE PRODUCTION URLs
 
-### Table: orders
-| Column | Type | Notes |
-|---|---|---|
-| id | uuid | Primary Key |
-| order_id | text | UNIQUE — prevents duplicates |
-| brand | text | Amazon, Myntra, Flipkart, Meesho, Ajio |
-| item_name | text | |
-| price | decimal | |
-| order_date | date | |
-| return_deadline | date | AI-calculated |
-| created_at | timestamp with time zone | |
-| consent_timestamp | timestamp | Required for DPDP compliance |
-
-### DPDP Compliance Fields (all user tables)
-- consent_timestamp — When user agreed to terms
-- purpose_id — Links data to "Return Tracking" or "Logistics Benchmarking"
-- data_expiry_date — Auto-set to 24 months (Storage Limitation rule)
-- anonymization_status — Boolean: scrubbed for B2B reporting
-
-### Data Buckets (Privacy by Design)
-- **Bucket A — Personal (Identity Layer):** Name, Phone, Email, Pincode, OAuth Tokens, Consent Log. Encrypted. Explicit consent required.
-- **Bucket B — Transactional (Reminder Layer):** Order ID, Brand, SKU, Price, Return Window, Evidence Locker. User-facing value.
-- **Bucket C — Operational (Monetization Layer):** Refund latency, Ghost flags, Courier integrity, Brand performance, Regional trends. Anonymized for B2B sale.
+| URL | Status |
+|-----|--------|
+| `https://returnkart.in` | ✅ Live — Onboarding + Dashboard |
+| `https://returnkart.in/api/health` | ✅ `{"status":"ok"}` |
+| `https://returnkart.in/api/docs` | ✅ Swagger UI live |
+| `https://returnkart.in/api/auth/google` | ✅ OAuth flow working |
+| `https://return-kart-tracker.replit.app` | ✅ Alias (same deployment) |
 
 ---
 
-## 🤖 AI / RAG KNOWLEDGE BASE
+## 🔑 CRITICAL ARCHITECTURAL DECISIONS
 
-### Return Policy Reference (knowledge_base.json)
-| Brand | Category | Window | Notes |
-|---|---|---|---|
-| Amazon India | Fashion | 10 days | |
-| Amazon India | Electronics | 7 days | Replacement only |
-| Myntra | Fashion Standard | 14 days | |
-| Myntra | Fashion Premium | 30 days | No returns on lingerie/fragrances |
-| Flipkart | Fashion | 10 days | |
-| Flipkart | Electronics | 7 days | Replacement only — video/technician required |
-| Meesho | Fashion | 7 days | Continuous unboxing video required for disputes |
-| Ajio | Fashion | 15 days | |
-| Ajio | Electronics | 7 days | |
-
-### AI Output Format (Structured JSON)
-The AI reads invoices and outputs:
-- order_context: order_id, brand, total_amount, currency
-- return_logic: policy_window, expiry_date, is_replacement_only
-- logistics_benchmark: delivery_pincode, courier_partner, actual_delivery_date
+1. **Vite proxy** — React calls `/api/*` for writes; Supabase ANON key for reads only.
+2. **`config.py` only `os.getenv()` caller** — all modules import constants from here.
+3. **PORT from environment** — never hardcode. DO NOT set PORT as Replit Secret.
+4. **Python venv** — `.venv/bin/python` for deployment (bypasses Nix immutable store).
+5. **`FRONTEND_URL`** — set to `https://returnkart.in` in Replit Secrets.
+6. **`GOOGLE_REDIRECT_URI`** — set to `https://returnkart.in/api/auth/callback`.
+7. **Cloudflare DNS-only** — gray cloud required; orange cloud breaks Replit SSL cert renewal.
+8. **user_id is TEXT, not UUID** — FK constraints to auth.users removed; RLS policies set to open (tighten when adding Supabase Auth).
+9. **Evidence Locker uses base64 in DB** — no Supabase Storage bucket needed for MVP. Files stored as data URIs in `evidence_locker` table.
 
 ---
 
-## 💰 REVENUE ROADMAP
+## 🗄️ SUPABASE DATABASE ✅ LIVE
 
-| Year | Phase | Primary Revenue | Key Goal |
-|---|---|---|---|
-| Year 1 | Pilot | Audit Fees (Brand Verification) | 100K Users / 20 Pilot Brands |
-| Year 2 | Validation | SaaS Subscriptions (Logistics Dashboards) | 500K Users / 3PL Benchmarking |
-| Year 3 | Infrastructure | Trust API Fees (Usage-based) | 2M Users / "CIBIL of Returns" |
-| Year 4 | Data Alpha | Institutional Data Licenses | 5M Users / Market Oracle |
+**Project ID:** `xxfofdkttxrmbymopajo` | **Region:** AWS ap-southeast-2
+
+| Table | Columns | RLS | Status |
+|-------|---------|-----|--------|
+| `orders` | 18 | ✅ Open policies (user_id TEXT) | Live |
+| `user_consents` | 8 | ✅ Open policies | Live |
+| `gmail_tokens` | 8 | ✅ Open policies | Live |
+| `evidence_locker` | 7 | ✅ Open policies | Live |
+
+**Note:** user_id migrated from UUID→TEXT on 2026-03-17. FK constraints to auth.users dropped. RLS policies set to permissive (USING true). Must tighten when implementing proper Supabase Auth.
+
+---
+
+## 🔗 GITHUB REPOS
+
+| Repo | Purpose | Status |
+|------|---------|--------|
+| `malaviasahil-returnkart/ReturnKart-Tracker` | Main monorepo (matches Replit project) | ✅ Synced |
+| `malaviasahil-returnkart/returnkart-backend` | Original backend (legacy reference) | ✅ |
+| `malaviasahil-returnkart/returnkart-frontend` | Frontend placeholder | Unused |
+
+---
+
+## 📁 PROJECT STRUCTURE (Clean MVP)
+
+```
+~/workspace/
+├── backend/           ← Python FastAPI (the real backend)
+│   ├── api/           ← auth.py, orders.py, evidence.py, health.py
+│   ├── services/      ← supabase_service.py, gmail_service.py, gemini_service.py, return_calculator.py
+│   ├── models/        ← order.py (Pydantic)
+│   ├── data/          ← knowledge_base.json (RAG return policies)
+│   ├── config.py      ← Single env var gateway
+│   ├── main.py        ← FastAPI entry point
+│   └── requirements.txt
+├── frontend/          ← React (Vite) + Tailwind
+│   ├── src/
+│   │   ├── pages/     ← Dashboard.jsx, Onboarding.jsx, Settings.jsx
+│   │   ├── lib/       ← api.js, formatters.js, supabaseClient.js
+│   │   ├── styles/    ← globals.css
+│   │   ├── App.jsx
+│   │   └── main.jsx
+│   ├── index.html
+│   ├── package.json
+│   ├── tailwind.config.js
+│   └── vite.config.js
+├── scripts/           ← test_supabase.py
+├── docs/              ← api_spec.md, supabase_schema.sql
+│   └── future/        ← Archived non-MVP code (B2B analytics, encryption, TypeScript server, etc.)
+├── MASTER_PROJECT_STATUS.md
+├── .replit, replit.nix, start.sh
+└── .env.example, .gitignore
+```
 
 ---
 
 ## ✅ ACTIVE SPRINT TRACKER
 
-Status Key: [ ] Not Started | [~] In Progress | [x] Done | [!] Blocked
+Status Key: `[ ]` Not Started | `[~]` In Progress | `[x]` Done | `[!]` Blocked
 
-### PHASE 1: FOUNDATION SETUP (Weeks 1-4) — 0/16 Done
+### PHASE 1: FOUNDATION — ✅ COMPLETE (16/16)
+
+| # | Task | Status |
+|---|------|--------|
+| 1 | Register returnkart.in domain | [x] GoDaddy → Cloudflare NS → Replit verified |
+| 2 | Google Cloud + Gmail API + OAuth client | [x] |
+| 3 | Supabase project + API keys | [x] |
+| 4 | 6 secrets in Replit Secrets | [x] |
+| 5 | GitHub repo + .gitignore | [x] ReturnKart-Tracker synced |
+| 6 | Supabase schema (4 tables) | [x] |
+| 7 | DPDP compliance fields | [x] |
+| 8 | Row-Level Security policies | [x] Migrated to open (TEXT user_id) |
+| 9 | IST timezone verified | [x] |
+| 10 | Gmail OAuth flow | [x] |
+| 11 | test_supabase.py — PASSES | [x] |
+| 12 | CREATE TABLE executed | [x] |
+| 13 | Email fetching (5 platforms) | [x] |
+| 14 | Gemini + RAG extraction | [x] |
+| 15 | Supabase upsert (no duplicates) | [x] |
+| 16 | CHECKPOINT: Gmail sync e2e test | [x] Domain live, OAuth login works, dashboard loads |
+
+### PHASE 2: PRODUCT BUILD (Weeks 5-12) — 6/9 Done
 
 | # | Wk | Task | Owner | Priority | Status |
-|---|---|---|---|---|---|
-| 1 | 1 | Register returnkart.in domain + hosting setup | Founder | Critical | [ ] |
-| 2 | 1 | Create Google Cloud project, enable Gmail API, OAuth consent | Founder | Critical | [ ] |
-| 3 | 1 | Set up Supabase project + get API keys | Dev | Critical | [ ] |
-| 4 | 1 | Create .env file (GEMINI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_KEY, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET) | Dev | Critical | [ ] |
-| 5 | 1 | Set up private GitHub repo with .gitignore | Dev | High | [ ] |
-| 6 | 2 | Design + implement full Supabase schema (4 core tables) | Dev | Critical | [ ] |
-| 7 | 2 | Add DPDP compliance metadata fields to all tables | Dev | High | [ ] |
-| 8 | 2 | Configure Row-Level Security policies | Dev | High | [ ] |
-| 9 | 2 | Verify Supabase timestamps are IST (not UTC/US) | Dev | Critical | [ ] |
-| 10 | 3 | Build Gmail OAuth authentication flow | Dev | Critical | [ ] |
-| 11 | 3 | Write test_supabase.py to verify backend connection | Dev | Critical | [ ] |
-| 12 | 3 | Execute CREATE TABLE orders SQL in Supabase dashboard | Dev | Critical | [ ] |
-| 13 | 3 | Create email fetching script (Amazon, Myntra, Flipkart, Meesho, Ajio) | Dev | Critical | [ ] |
-| 14 | 4 | Implement extract_order_data function (Gemini + RAG knowledge_base.json) | Dev | Critical | [ ] |
-| 15 | 4 | Write Supabase upsert logic (no order_id duplicates) | Dev | Critical | [ ] |
-| 16 | 4 | CHECKPOINT: Gmail sync working, orders saving to Supabase | Both | Critical | [ ] |
+|---|----|----|-------|----------|--------|
+| 17 | 5-6 | Screen 1: Zero-Touch Onboarding (Black/Gold UI, Google Sync, DPDP badge) | Dev | Critical | [x] |
+| 18 | 5-6 | Screen 2: Main Dashboard (Protected amount, urgent carousel, countdown timers) | Dev | Critical | [x] |
+| 19 | 7-8 | Screen 3: Order Detail Modal (Receipt, RAG policy, Mark as Kept/Returned) | Dev | Critical | [x] |
+| 20 | 7-8 | Screen 4: Settings Vault (Revoke Gmail, consent timestamp, Delete All Data) | Dev | High | [x] |
+| 21 | 8 | Return Countdown — Money at Risk dashboard | Dev | Critical | [x] |
+| 22 | 9 | Evidence Locker — Secure photo/video storage (base64 in DB) | Dev | High | [x] |
+| 23 | 11 | Good Shopper Rewards — auto-coupon issuance | Dev | Medium | [ ] |
+| 24 | 11-12 | DPDP consent flow with timestamped logging | Dev | Critical | [ ] |
+| 25 | 12 | CHECKPOINT: Feature-complete app ready for beta | Both | Critical | [ ] |
 
-### PHASE 2: PRODUCT BUILD (Weeks 5-12) — 0/10 Done
-
-| # | Wk | Task | Owner | Priority | Status |
-|---|---|---|---|---|---|
-| 17 | 5-6 | Build Screen 1: Zero-Touch Onboarding (Black/Gold UI, Google Sync, DPDP badge) | Dev | Critical | [ ] |
-| 18 | 5-6 | Build Screen 2: Main Dashboard (Protected amount, urgent carousel, countdown timers) | Dev | Critical | [ ] |
-| 19 | 7-8 | Build Screen 3: Order Detail Modal (Receipt, RAG policy, Mark as Kept / Returned) | Dev | Critical | [ ] |
-| 20 | 7-8 | Build Screen 4: Settings Vault (Revoke Gmail, consent timestamp, Delete All Data) | Dev | High | [ ] |
-| 21 | 8 | Return Countdown — Money at Risk dashboard with color-coded urgency | Dev | Critical | [ ] |
-| 22 | 9 | Evidence Locker — Secure photo/video storage for dispute resolution | Dev | High | [ ] |
-| 23 | 10 | Ghost-Buster Flagging — One-tap Customer Not Home reporting + location verify | Dev | High | [ ] |
-| 24 | 11 | Good Shopper Rewards — Auto-coupon issuance when return window expires | Dev | Medium | [ ] |
-| 25 | 11-12 | Implement DPDP consent flow with timestamped logging | Dev | Critical | [ ] |
-| 26 | 12 | CHECKPOINT: Feature-complete app ready for beta | Both | Critical | [ ] |
+**Note:** Ghost-Buster Flagging moved to Future Backlog — important but not MVP-critical.
 
 ### PHASE 3: LAUNCH & GROWTH (Weeks 13-24) — 0/9 Done
 
 | # | Wk | Task | Owner | Priority | Status |
-|---|---|---|---|---|---|
-| 27 | 13-14 | Create brand identity (logo, colors, social templates) | Founder | High | [ ] |
-| 28 | 13-14 | Build content strategy around Consumer Protection angle | Founder | High | [ ] |
-| 29 | 15-16 | Launch closed beta with 100-200 users | Founder | Critical | [ ] |
-| 30 | 16-17 | Iterate UI/UX based on beta feedback | Dev | High | [ ] |
-| 31 | 17-18 | SEO + App Store Optimization | Founder | Medium | [ ] |
-| 32 | 18-20 | Contact pilot brands for audit fee partnerships | Founder | High | [ ] |
-| 33 | 20-22 | Reach 10K-50K users via Consumer Protection marketing | Founder | Critical | [ ] |
-| 34 | 22-24 | Launch Good Shopper brand reward program | Both | High | [ ] |
-| 35 | 24 | CHECKPOINT: 10K-50K users acquired | Both | Critical | [ ] |
+|---|----|----|-------|----------|--------|
+| 26 | 13-14 | Brand identity (logo, colors, social templates) | Founder | High | [ ] |
+| 27 | 13-14 | Content strategy around Consumer Protection angle | Founder | High | [ ] |
+| 28 | 15-16 | Launch closed beta with 100-200 users | Founder | Critical | [ ] |
+| 29 | 16-17 | Iterate UI/UX based on beta feedback | Dev | High | [ ] |
+| 30 | 17-18 | SEO + App Store Optimization | Founder | Medium | [ ] |
+| 31 | 18-20 | Contact pilot brands for audit fee partnerships | Founder | High | [ ] |
+| 32 | 20-22 | Reach 10K-50K users via Consumer Protection marketing | Founder | Critical | [ ] |
+| 33 | 22-24 | Launch Good Shopper brand reward program | Both | High | [ ] |
+| 34 | 24 | CHECKPOINT: 10K-50K users acquired | Both | Critical | [ ] |
 
 ### PHASE 4: MONETIZATION (Weeks 25-48) — 0/10 Done
 
 | # | Wk | Task | Owner | Priority | Status |
-|---|---|---|---|---|---|
-| 36 | 25-28 | Launch B2B brand audit dashboard (anonymized data) | Dev | High | [ ] |
-| 37 | 28-30 | Sign first 20 pilot brand partnerships | Founder | Critical | [ ] |
-| 38 | 30-32 | Build 3PL Benchmarking SaaS dashboard | Dev | High | [ ] |
-| 39 | 32 | CHECKPOINT: 20 pilot brand partnerships secured | Both | Critical | [ ] |
-| 40 | 33-36 | Launch Switching Matrix analytics (cross-platform return-to-buy data) | Dev | High | [ ] |
-| 41 | 36-40 | Develop institutional data licensing packages | Founder | High | [ ] |
-| 42 | 40-44 | Pitch CIBIL of Returns Trust API to ecosystem players | Founder | Critical | [ ] |
-| 43 | 41-44 | Build Trust API (usage-based pricing) | Dev | High | [ ] |
-| 44 | 45-48 | Begin institutional data licensing conversations | Founder | High | [ ] |
-| 45 | 48 | CHECKPOINT: 100K users, 20 brands, revenue validated | Both | Critical | [ ] |
+|---|----|----|-------|----------|--------|
+| 35 | 25-28 | Launch B2B brand audit dashboard | Dev | High | [ ] |
+| 36 | 28-30 | Sign first 20 pilot brand partnerships | Founder | Critical | [ ] |
+| 37 | 30-32 | Build 3PL Benchmarking SaaS dashboard | Dev | High | [ ] |
+| 38 | 32 | CHECKPOINT: 20 pilot brand partnerships secured | Both | Critical | [ ] |
+| 39 | 33-36 | Launch Switching Matrix analytics | Dev | High | [ ] |
+| 40 | 36-40 | Develop institutional data licensing packages | Founder | High | [ ] |
+| 41 | 40-44 | Pitch CIBIL of Returns Trust API | Founder | Critical | [ ] |
+| 42 | 41-44 | Build Trust API (usage-based pricing) | Dev | High | [ ] |
+| 43 | 45-48 | Begin institutional data licensing conversations | Founder | High | [ ] |
+| 44 | 48 | CHECKPOINT: 100K users, 20 brands, revenue validated | Both | Critical | [ ] |
 
 ---
 
 ## 🔑 KEY MILESTONES
 
 | Target Week | Milestone | Status |
-|---|---|---|
-| Week 4 | Gmail sync working, orders saving to Supabase | [ ] Not Started |
-| Week 12 | Feature-complete app ready for beta | [ ] Not Started |
+|-------------|-----------|--------|
+| Week 4 | Gmail sync working, orders saving to Supabase | [x] ✅ |
+| Week 12 | Feature-complete app ready for beta | [~] 6/9 Phase 2 tasks done |
 | Week 16 | Closed beta launched (100+ users) | [ ] Not Started |
 | Week 24 | 10K-50K users acquired | [ ] Not Started |
 | Week 32 | 20 pilot brand partnerships secured | [ ] Not Started |
@@ -189,24 +211,30 @@ Status Key: [ ] Not Started | [~] In Progress | [x] Done | [!] Blocked
 
 ---
 
-## 🔮 FUTURE BACKLOG (Do Not Build Yet)
+## 🔮 FUTURE BACKLOG
 
-- Android Notification Listener Service (background scraping for Bharat users)
-- AI Escalation Email Engine (drafting legal dispute emails automatically)
-- B2B Analytics Dashboard (anonymized logistics metrics for 3PLs)
-- Cross-Platform Switching Matrix (tracks return-on-A then buy-on-B behaviour)
+Code archived in `docs/future/`. Do not build until post-beta.
+
+- Ghost-Buster Flagging — one-tap CNH reporting + courier reliability scoring (needs `ghost_flags` table)
+- Anonymization Pipeline — B2B data anonymization engine (`docs/future/utils/anonymization.js`)
+- Encryption Layer — client-side PII encryption (`docs/future/utils/encryption.js`)
+- Analytics Schema — B2B reporting tables (`docs/future/utils/schema_analytics.sql`)
+- AI Escalation Email Engine — auto-draft dispute emails (`docs/future/data/email_drafting_templates.json`)
+- Android Notification Listener Service
+- B2B Analytics Dashboard
+- Cross-Platform Switching Matrix
+- Tighten RLS policies when implementing Supabase Auth
 
 ---
 
 ## 📋 WEEKLY LOG
 
-| Week # | Date Range | Tasks Planned | Tasks Completed | Blockers | Key Decisions | Next Week Focus |
-|---|---|---|---|---|---|---|
-| 1 | | | | | | |
-| 2 | | | | | | |
-| 3 | | | | | | |
-| 4 | | | | | | |
+| Week # | Date Range | Tasks Completed | Blockers | Key Decisions | Next Focus |
+|--------|-----------|----------------|----------|---------------|------------|
+| 1 | 2026-03-14/16 | Phase 1 (15/16). Backend LIVE. Swagger UI. .venv fix. GitHub synced. | OAuth e2e needed FRONTEND_URL + test user. | Vite + FastAPI + venv on Nix locked. Cloudflare DNS-only for Replit. | Domain + OAuth login. |
+| 2 | 2026-03-17 | Phase 1 COMPLETE (16/16). returnkart.in connected. OAuth e2e working. Dashboard upgraded (stats, carousel, order detail, settings). Tasks 17-21 done. | None. | Ghost-Buster moved to backlog. user_id UUID→TEXT migration. FRONTEND_URL + REDIRECT_URI → returnkart.in. | Evidence Locker, code cleanup. |
+| 3 | 2026-03-18 | Evidence Locker built + deployed (Task 22). Codebase decluttered — all non-MVP code moved to docs/future/. Project structure cleaned. | None. | Evidence stored as base64 in DB (no public Storage bucket — DPDP safe). Ghost-Buster confirmed not MVP. | Good Shopper Rewards + DPDP consent logging. |
 
 ---
 
-*This is the single source of truth for Returnkart.in. Update the Sprint Tracker and Weekly Log every week.*
+*This is the single source of truth for Returnkart.in.*
