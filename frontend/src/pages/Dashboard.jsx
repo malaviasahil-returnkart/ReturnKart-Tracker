@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { api } from '../lib/api'
 import { formatINR, daysRemaining, urgencyLevel, urgencyColor, formatDate } from '../lib/formatters'
+import { computeShopperStats, getTrustScoreColor, getTrustScoreLabel } from '../lib/shopperScore'
 
 export default function Dashboard({ userId, onDisconnect, onSettings }) {
   const [orders, setOrders]       = useState([])
@@ -68,6 +69,9 @@ export default function Dashboard({ userId, onDisconnect, onSettings }) {
   const savedOrders = allOrders.filter(o => o.status === 'returned')
   const moneySaved = savedOrders.reduce((sum, o) => sum + (o.price || 0), 0)
 
+  // Good Shopper stats
+  const shopperStats = computeShopperStats(allOrders)
+
   return (
     <div className="min-h-screen bg-vault-black flex flex-col">
       <header className="sticky top-0 z-10 bg-vault-black/95 backdrop-blur-sm border-b border-vault-border px-4 py-3 flex items-center justify-between">
@@ -88,7 +92,28 @@ export default function Dashboard({ userId, onDisconnect, onSettings }) {
         <div className="mx-4 mt-2 rounded-xl bg-vault-card card-border px-3 py-2 text-center text-xs text-vault-muted animate-fade-in">{syncResult}</div>
       )}
 
-      <div className="grid grid-cols-3 gap-2 px-4 mt-4">
+      {/* Good Shopper Card */}
+      <div className="mx-4 mt-4 bg-vault-card card-border rounded-2xl px-4 py-3 flex items-center gap-4">
+        <div className="relative flex-shrink-0">
+          <TrustScoreRing score={shopperStats.trustScore} size={56} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-base">{shopperStats.badge.icon}</span>
+            <p className="text-vault-text font-semibold text-sm">{shopperStats.badge.name}</p>
+          </div>
+          <div className="flex items-center gap-3 mt-1">
+            <span className="text-vault-muted text-[10px]">{shopperStats.keepRate}% keep rate</span>
+            {shopperStats.streak > 0 && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-orange-900/30 text-orange-400">🔥 {shopperStats.streak} streak</span>
+            )}
+            <span className="text-vault-muted text-[10px]">{formatINR(shopperStats.totalValueKept)} kept</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Summary Stats */}
+      <div className="grid grid-cols-3 gap-2 px-4 mt-3">
         <div className="bg-vault-card card-border rounded-2xl px-3 py-3 text-center">
           <p className="text-vault-muted text-[10px] uppercase tracking-wider">Protected</p>
           <p className="text-vault-gold font-bold text-base mt-0.5">{formatINR(totalProtected)}</p>
@@ -106,6 +131,7 @@ export default function Dashboard({ userId, onDisconnect, onSettings }) {
         </div>
       </div>
 
+      {/* Urgent Carousel */}
       {urgentOrders.length > 0 && (
         <div className="mt-4 px-4">
           <p className="text-vault-urgent text-xs font-semibold uppercase tracking-wider mb-2 flex items-center gap-1.5">
@@ -130,6 +156,7 @@ export default function Dashboard({ userId, onDisconnect, onSettings }) {
         </div>
       )}
 
+      {/* Tabs */}
       <div className="flex gap-1 px-4 mt-4">
         {[['active','Active'],['all','All'],['returned','Returned'],['expired','Expired']].map(([val, label]) => (
           <button key={val} onClick={() => setTab(val)}
@@ -142,6 +169,7 @@ export default function Dashboard({ userId, onDisconnect, onSettings }) {
         ))}
       </div>
 
+      {/* Orders list */}
       <div className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-3 pb-24">
         {loading ? (
           <div className="flex justify-center py-12">
@@ -179,6 +207,30 @@ export default function Dashboard({ userId, onDisconnect, onSettings }) {
   )
 }
 
+// Trust Score Ring — circular progress indicator
+function TrustScoreRing({ score, size = 56 }) {
+  const strokeWidth = 4
+  const r = (size - strokeWidth) / 2
+  const circ = 2 * Math.PI * r
+  const dash = (score / 100) * circ
+  const color = getTrustScoreColor(score)
+  const label = getTrustScoreLabel(score)
+
+  return (
+    <div className="relative" style={{ width: size, height: size }}>
+      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#2A2A2A" strokeWidth={strokeWidth} />
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={strokeWidth}
+          strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
+          style={{ transition: 'stroke-dasharray 0.8s ease' }} />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="font-bold text-sm" style={{ color }}>{score}</span>
+      </div>
+    </div>
+  )
+}
+
 function OrderCard({ order, onTap }) {
   const days = daysRemaining(order.return_deadline)
   const level = urgencyLevel(days)
@@ -186,7 +238,10 @@ function OrderCard({ order, onTap }) {
   const statusBadge = order.status === 'returned'
     ? { text: 'Returned', bg: 'bg-green-900/30', textColor: 'text-green-400' }
     : order.status === 'kept'
-    ? { text: 'Keeping', bg: 'bg-blue-900/30', textColor: 'text-blue-400' } : null
+    ? { text: '⭐ Kept', bg: 'bg-blue-900/30', textColor: 'text-blue-400' }
+    : order.status === 'expired'
+    ? { text: 'Expired — Kept', bg: 'bg-vault-border', textColor: 'text-vault-muted' }
+    : null
   const cardClass = order.status === 'expired' || order.status === 'returned' || order.status === 'kept'
     ? 'opacity-60 card-border'
     : level === 'critical' || level === 'urgent' ? 'urgent-border' : 'card-border'
@@ -206,7 +261,7 @@ function OrderCard({ order, onTap }) {
         </div>
         <div className="flex flex-col items-center flex-shrink-0">
           {order.status === 'returned' ? <span className="text-green-400 text-xl">✓</span>
-            : order.status === 'kept' ? <span className="text-blue-400 text-xl">♡</span>
+            : order.status === 'kept' ? <span className="text-blue-400 text-xl">⭐</span>
             : days === null ? <span className="text-vault-muted text-xs">—</span>
             : days < 0 ? <span className="text-vault-muted text-xs font-medium">Expired</span>
             : <><span className="text-2xl font-bold" style={{ color }}>{days}</span><span className="text-[10px]" style={{ color: '#A0A0A0' }}>day{days !== 1 ? 's' : ''}</span></>}
@@ -295,20 +350,28 @@ function OrderSheet({ order, userId, onClose, onKept, onReturned }) {
             </button>
             <button onClick={() => onKept(order.id)}
               className="w-full bg-vault-card card-border text-vault-muted py-4 rounded-2xl font-semibold text-base active:scale-95 transition-transform">
-              ✓ I'm Keeping This
+              ⭐ I'm Keeping This
             </button>
           </div>
         )}
 
-        {order.status !== 'active' && (
-          <div className={`text-center py-3 rounded-2xl text-sm font-medium ${
-            order.status === 'returned' ? 'bg-green-900/20 text-green-400'
-            : order.status === 'kept' ? 'bg-blue-900/20 text-blue-400'
-            : 'bg-vault-card text-vault-muted'
-          }`}>
-            {order.status === 'returned' ? '✓ Returned successfully'
-              : order.status === 'kept' ? '♡ You\'re keeping this item'
-              : `Status: ${order.status}`}
+        {order.status === 'kept' && (
+          <div className="bg-blue-900/20 border border-blue-700/30 rounded-2xl px-4 py-4 text-center animate-fade-in">
+            <span className="text-2xl">⭐</span>
+            <p className="text-blue-400 font-semibold text-sm mt-1">Good Shopper!</p>
+            <p className="text-vault-muted text-xs mt-0.5">You kept this item. Your trust score just went up.</p>
+          </div>
+        )}
+
+        {order.status === 'returned' && (
+          <div className="bg-green-900/20 text-green-400 text-center py-3 rounded-2xl text-sm font-medium">
+            ✓ Returned successfully
+          </div>
+        )}
+
+        {order.status === 'expired' && (
+          <div className="bg-vault-card text-vault-muted text-center py-3 rounded-2xl text-sm font-medium">
+            Return window expired — counted as kept
           </div>
         )}
       </div>
@@ -342,99 +405,47 @@ function EvidenceLocker({ orderId, userId }) {
   async function handleFileSelect(e) {
     const file = e.target.files?.[0]
     if (!file) return
-
     const maxSize = 10 * 1024 * 1024
-    if (file.size > maxSize) {
-      setError('File too large (max 10MB)')
-      setTimeout(() => setError(null), 3000)
-      return
-    }
-
+    if (file.size > maxSize) { setError('File too large (max 10MB)'); setTimeout(() => setError(null), 3000); return }
     const allowed = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/quicktime']
-    if (!allowed.includes(file.type)) {
-      setError('Only JPEG, PNG, WebP, MP4 allowed')
-      setTimeout(() => setError(null), 3000)
-      return
-    }
-
+    if (!allowed.includes(file.type)) { setError('Only JPEG, PNG, WebP, MP4 allowed'); setTimeout(() => setError(null), 3000); return }
     setUploading(true)
     setError(null)
     try {
       const base64 = await fileToBase64(file)
       await api.uploadEvidence(orderId, userId, base64, file.type, file.name)
       await loadEvidence()
-    } catch(e) {
-      console.error(e)
-      setError('Upload failed. Try again.')
-      setTimeout(() => setError(null), 3000)
-    } finally {
-      setUploading(false)
-      if (fileRef.current) fileRef.current.value = ''
-    }
+    } catch(e) { console.error(e); setError('Upload failed. Try again.'); setTimeout(() => setError(null), 3000) }
+    finally { setUploading(false); if (fileRef.current) fileRef.current.value = '' }
   }
 
   async function handleDelete(evidenceId) {
-    try {
-      await api.deleteEvidence(evidenceId, userId)
-      setEvidence(prev => prev.filter(e => e.id !== evidenceId))
-    } catch(e) {
-      console.error(e)
-    }
+    try { await api.deleteEvidence(evidenceId, userId); setEvidence(prev => prev.filter(e => e.id !== evidenceId)) }
+    catch(e) { console.error(e) }
   }
 
   return (
     <div className="flex flex-col gap-3 animate-fade-in">
-      {/* Upload button */}
-      <input ref={fileRef} type="file" accept="image/*,video/mp4" capture="environment"
-        onChange={handleFileSelect} className="hidden" />
-
+      <input ref={fileRef} type="file" accept="image/*,video/mp4" capture="environment" onChange={handleFileSelect} className="hidden" />
       <button onClick={() => fileRef.current?.click()} disabled={uploading}
         className="w-full bg-vault-black card-border rounded-xl px-4 py-3 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform">
-        {uploading ? (
-          <><div className="w-4 h-4 border-2 border-vault-gold border-t-transparent rounded-full animate-spin" />
-            <span className="text-vault-muted text-sm">Uploading…</span></>
-        ) : (
-          <><span className="text-lg">📷</span>
-            <span className="text-vault-gold text-sm font-medium">Add Photo / Video</span></>
-        )}
+        {uploading ? (<><div className="w-4 h-4 border-2 border-vault-gold border-t-transparent rounded-full animate-spin" /><span className="text-vault-muted text-sm">Uploading…</span></>)
+          : (<><span className="text-lg">📷</span><span className="text-vault-gold text-sm font-medium">Add Photo / Video</span></>)}
       </button>
-
       {error && <p className="text-red-400 text-xs text-center">{error}</p>}
-
-      {/* Evidence grid */}
-      {loading ? (
-        <div className="flex justify-center py-4">
-          <div className="w-5 h-5 border-2 border-vault-gold border-t-transparent rounded-full animate-spin" />
-        </div>
-      ) : evidence.length === 0 ? (
-        <p className="text-vault-muted text-xs text-center py-2">No evidence uploaded yet. Tap above to add photos of unboxing, product condition, or packaging.</p>
-      ) : (
-        <div className="grid grid-cols-3 gap-2">
-          {evidence.map(item => (
+      {loading ? (<div className="flex justify-center py-4"><div className="w-5 h-5 border-2 border-vault-gold border-t-transparent rounded-full animate-spin" /></div>)
+        : evidence.length === 0 ? (<p className="text-vault-muted text-xs text-center py-2">No evidence yet. Add photos of unboxing, product condition, or packaging.</p>)
+        : (<div className="grid grid-cols-3 gap-2">{evidence.map(item => (
             <div key={item.id} className="relative group">
-              {item.file_type?.startsWith('video') ? (
-                <div className="w-full aspect-square bg-vault-black rounded-xl card-border flex items-center justify-center">
-                  <span className="text-2xl">🎬</span>
-                </div>
-              ) : (
-                <img src={item.file_url} alt="Evidence"
-                  className="w-full aspect-square object-cover rounded-xl card-border" />
-              )}
+              {item.file_type?.startsWith('video')
+                ? <div className="w-full aspect-square bg-vault-black rounded-xl card-border flex items-center justify-center"><span className="text-2xl">🎬</span></div>
+                : <img src={item.file_url} alt="Evidence" className="w-full aspect-square object-cover rounded-xl card-border" />}
               <button onClick={(e) => { e.stopPropagation(); handleDelete(item.id) }}
-                className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity">
-                ×
-              </button>
-              <p className="text-vault-muted text-[9px] mt-1 text-center">
-                {new Date(item.uploaded_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-              </p>
+                className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity">×</button>
+              <p className="text-vault-muted text-[9px] mt-1 text-center">{new Date(item.uploaded_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
             </div>
-          ))}
-        </div>
-      )}
-
-      <p className="text-vault-muted text-[10px] text-center">
-        🔒 Evidence is encrypted and only visible to you. Max 10MB per file.
-      </p>
+          ))}</div>)}
+      <p className="text-vault-muted text-[10px] text-center">🔒 Evidence is encrypted and only visible to you. Max 10MB per file.</p>
     </div>
   )
 }
@@ -442,10 +453,7 @@ function EvidenceLocker({ orderId, userId }) {
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
-    reader.onload = () => {
-      const base64 = reader.result.split(',')[1]
-      resolve(base64)
-    }
+    reader.onload = () => resolve(reader.result.split(',')[1])
     reader.onerror = reject
     reader.readAsDataURL(file)
   })
