@@ -1,13 +1,9 @@
 """
 RETURNKART.IN — GMAIL SERVICE
-Task #13: Fetch invoice emails from Gmail and extract order data.
+Fetch invoice/shipping emails from Gmail and extract order data using Gemini AI.
 
-Flow:
-  1. Load user's Gmail token from Supabase
-  2. Refresh token if expired
-  3. Search Gmail for invoice/shipping emails from known platforms
-  4. For each email: call Gemini to extract order data
-  5. Save extracted orders to Supabase (upsert — no duplicates)
+Supports 30+ Indian ecommerce platforms with broad search queries.
+Includes catch-all query for unknown platforms.
 """
 import base64
 from datetime import datetime, timezone, timedelta
@@ -27,27 +23,82 @@ from backend.models.order import OrderCreate
 
 IST = timezone(timedelta(hours=5, minutes=30))
 
-# Gmail search queries per platform — BROAD queries to catch all order-related emails
-# Each query searches multiple sender addresses and subjects
+# Common subject keywords for ecommerce emails
+_SUBJ = '(subject:"order" OR subject:"shipped" OR subject:"delivered" OR subject:"confirmed" OR subject:"placed" OR subject:"dispatched" OR subject:"out for delivery" OR subject:"arriving" OR subject:"refund" OR subject:"invoice")'
+
+# ==============================
+# PLATFORM QUERIES — Top 30+ Indian ecommerce brands
+# ==============================
 PLATFORM_QUERIES = {
-    "amazon": '(from:amazon.in OR from:amazon.com) (subject:"your order" OR subject:"shipped" OR subject:"delivered" OR subject:"order confirmation" OR subject:"out for delivery" OR subject:"arriving" OR subject:"refund")',
-    "flipkart": '(from:flipkart.com) (subject:"order" OR subject:"shipped" OR subject:"delivered" OR subject:"confirmed" OR subject:"arriving" OR subject:"refund" OR subject:"placed")',
-    "myntra": '(from:myntra.com) (subject:"order" OR subject:"shipped" OR subject:"delivered" OR subject:"confirmed" OR subject:"placed" OR subject:"refund")',
-    "meesho": '(from:meesho.com) (subject:"order" OR subject:"shipped" OR subject:"delivered" OR subject:"confirmed" OR subject:"placed")',
-    "ajio": '(from:ajio.com) (subject:"order" OR subject:"shipped" OR subject:"delivered" OR subject:"confirmed" OR subject:"placed")',
-    "nykaa": '(from:nykaa.com) (subject:"order" OR subject:"shipped" OR subject:"delivered" OR subject:"confirmed")',
-    "tatacliq": '(from:tatacliq.com OR from:tataneu.com) (subject:"order" OR subject:"shipped" OR subject:"delivered")',
-    "jiomart": '(from:jiomart.com OR from:reliance) (subject:"order" OR subject:"shipped" OR subject:"delivered")',
-    "snapdeal": '(from:snapdeal.com) (subject:"order" OR subject:"shipped" OR subject:"delivered")',
-    "croma": '(from:croma.com) (subject:"order" OR subject:"shipped" OR subject:"delivered")',
+    # --- Horizontal Marketplaces ---
+    "amazon":    f'(from:amazon.in OR from:amazon.com) {_SUBJ}',
+    "flipkart":  f'(from:flipkart.com OR from:ekartlogistics.com) {_SUBJ}',
+    "meesho":    f'(from:meesho.com) {_SUBJ}',
+    "snapdeal":  f'(from:snapdeal.com) {_SUBJ}',
+    "shopclues": f'(from:shopclues.com) {_SUBJ}',
+    "jiomart":   f'(from:jiomart.com OR from:reliance OR from:reliancedigital.in) {_SUBJ}',
+    "tatacliq":  f'(from:tatacliq.com OR from:tataneu.com OR from:tatadigital.com) {_SUBJ}',
+    "paytmmall": f'(from:paytmmall.com OR from:paytm.com) {_SUBJ}',
+    "indiamart": f'(from:indiamart.com) {_SUBJ}',
+
+    # --- Fashion & Lifestyle ---
+    "myntra":    f'(from:myntra.com) {_SUBJ}',
+    "ajio":      f'(from:ajio.com) {_SUBJ}',
+    "nykaa":     f'(from:nykaa.com OR from:nykaafashion.com OR from:nykaamann.com) {_SUBJ}',
+    "zara":      f'(from:zara.com) {_SUBJ}',
+    "hm":        f'(from:hm.com OR from:email.hm.com) {_SUBJ}',
+    "bewakoof":  f'(from:bewakoof.com) {_SUBJ}',
+    "souledstore": f'(from:thesouledstore.com) {_SUBJ}',
+    "limeroad":  f'(from:limeroad.com) {_SUBJ}',
+    "koovs":     f'(from:koovs.com) {_SUBJ}',
+    "urbanicco": f'(from:urbanic.com) {_SUBJ}',
+    "shein":     f'(from:shein.com OR from:shein.in) {_SUBJ}',
+    "trendsin":  f'(from:trends.in OR from:reliancetrends) {_SUBJ}',
+
+    # --- Electronics & Tech ---
+    "croma":     f'(from:croma.com) {_SUBJ}',
+    "vijaysales":f'(from:vijaysales.com) {_SUBJ}',
+    "boat":      f'(from:boat-lifestyle.com OR from:boatlifestyle.com) {_SUBJ}',
+    "oneplus":   f'(from:oneplus.in OR from:oneplus.com) {_SUBJ}',
+    "samsung":   f'(from:samsung.com OR from:shop.samsung.com) {_SUBJ}',
+    "apple":     f'(from:apple.com) {_SUBJ}',
+    "mi":        f'(from:xiaomi.com OR from:mi.com OR from:store.mi.com) {_SUBJ}',
+
+    # --- Beauty & Health ---
+    "purplle":   f'(from:purplle.com) {_SUBJ}',
+    "mamaearth": f'(from:mamaearth.in) {_SUBJ}',
+    "tataone":   f'(from:tata1mg.com OR from:1mg.com) {_SUBJ}',
+    "pharmeasy": f'(from:pharmeasy.in) {_SUBJ}',
+    "netmeds":   f'(from:netmeds.com) {_SUBJ}',
+
+    # --- Home & Furniture ---
+    "pepperfry": f'(from:pepperfry.com) {_SUBJ}',
+    "urbanladder":f'(from:urbanladder.com) {_SUBJ}',
+    "wakefit":   f'(from:wakefit.co) {_SUBJ}',
+    "ikea":      f'(from:ikea.in OR from:ikea.com) {_SUBJ}',
+    "hometown":  f'(from:hometown.in) {_SUBJ}',
+
+    # --- Grocery & Quick Commerce ---
+    "bigbasket": f'(from:bigbasket.com) {_SUBJ}',
+    "blinkit":   f'(from:blinkit.com OR from:grofers.com) {_SUBJ}',
+    "swiggy":    f'(from:swiggy.in OR from:swiggy.com) {_SUBJ}',
+    "zepto":     f'(from:zeptonow.com) {_SUBJ}',
+    "dunzo":     f'(from:dunzo.com OR from:dunzo.in) {_SUBJ}',
+
+    # --- Eyewear & Accessories ---
+    "lenskart":  f'(from:lenskart.com) {_SUBJ}',
+    "caratlane": f'(from:caratlane.com) {_SUBJ}',
+    "tanishq":   f'(from:tanishq.co.in OR from:titan.co.in) {_SUBJ}',
+
+    # --- Sports & Outdoor ---
+    "decathlon": f'(from:decathlon.in OR from:decathlon.com) {_SUBJ}',
 }
 
-# Catch-all query for any ecommerce order email not from known platforms
-CATCH_ALL_QUERY = '(subject:"order confirmed" OR subject:"order placed" OR subject:"your order" OR subject:"order shipped" OR subject:"has been shipped" OR subject:"out for delivery" OR subject:"has been delivered") newer_than:30d'
+# Catch-all: any ecommerce-sounding email from the last 60 days
+CATCH_ALL_QUERY = '(subject:"order confirmed" OR subject:"order placed" OR subject:"your order" OR subject:"order shipped" OR subject:"has been shipped" OR subject:"has been dispatched" OR subject:"out for delivery" OR subject:"has been delivered" OR subject:"order summary" OR subject:"order receipt" OR subject:"payment received" OR subject:"invoice for your order") newer_than:60d'
 
 
 def _build_credentials(token_row: dict) -> Credentials:
-    """Build a Google Credentials object from a DB token row."""
     return Credentials(
         token=token_row["access_token"],
         refresh_token=token_row.get("refresh_token"),
@@ -59,7 +110,6 @@ def _build_credentials(token_row: dict) -> Credentials:
 
 
 async def _refresh_if_needed(user_id: str, token_row: dict) -> Credentials:
-    """Refresh expired credentials and save updated token back to DB."""
     creds = _build_credentials(token_row)
     if creds.expired and creds.refresh_token:
         creds.refresh(GoogleRequest())
@@ -74,40 +124,33 @@ async def _refresh_if_needed(user_id: str, token_row: dict) -> Credentials:
 
 
 def _decode_email_body(payload: dict) -> str:
-    """Extract text body from a Gmail message payload. Tries plain text first, then HTML."""
+    """Extract text body from Gmail payload. Tries plain text first, then HTML. Recursive."""
     body = ""
-
-    # Direct body
     if payload.get("body", {}).get("data"):
         body = base64.urlsafe_b64decode(payload["body"]["data"]).decode("utf-8", errors="ignore")
         if body.strip():
-            return body[:10000]
+            return body[:12000]
 
-    # Multipart — search recursively
     parts = payload.get("parts", [])
     plain_text = ""
     html_text = ""
-
     for part in parts:
         mime = part.get("mimeType", "")
         data = part.get("body", {}).get("data", "")
-
         if mime == "text/plain" and data:
             plain_text = base64.urlsafe_b64decode(data).decode("utf-8", errors="ignore")
         elif mime == "text/html" and data:
             html_text = base64.urlsafe_b64decode(data).decode("utf-8", errors="ignore")
         elif mime.startswith("multipart/") and part.get("parts"):
-            # Recurse into nested multipart
             nested = _decode_email_body(part)
             if nested:
                 plain_text = plain_text or nested
 
     body = plain_text or html_text
-    return body[:10000]  # Increase limit for more context
+    return body[:12000]
 
 
 def _get_header(headers: list, name: str) -> str:
-    """Extract a specific header value from Gmail message headers."""
     for h in headers:
         if h["name"].lower() == name.lower():
             return h["value"]
@@ -115,42 +158,38 @@ def _get_header(headers: list, name: str) -> str:
 
 
 def _detect_platform(sender: str, subject: str) -> str:
-    """Auto-detect platform from sender/subject when using catch-all query."""
-    sender_lower = sender.lower()
-    subject_lower = subject.lower()
-
-    platform_hints = {
-        "amazon": ["amazon"],
-        "flipkart": ["flipkart", "ekart"],
-        "myntra": ["myntra"],
-        "meesho": ["meesho"],
-        "ajio": ["ajio"],
-        "nykaa": ["nykaa"],
-        "tatacliq": ["tatacliq", "tataneu", "tata cliq"],
-        "jiomart": ["jiomart", "reliance"],
-        "snapdeal": ["snapdeal"],
-        "croma": ["croma"],
-        "swiggy": ["swiggy"],
-        "zomato": ["zomato"],
-        "bigbasket": ["bigbasket"],
-        "lenskart": ["lenskart"],
-        "boat": ["boat-lifestyle", "boatlifestyle"],
-        "pepperfry": ["pepperfry"],
-        "urbanladder": ["urbanladder"],
+    """Auto-detect platform from sender/subject for catch-all matches."""
+    text = (sender + " " + subject).lower()
+    hints = {
+        "amazon": ["amazon"], "flipkart": ["flipkart", "ekart"], "myntra": ["myntra"],
+        "meesho": ["meesho"], "ajio": ["ajio"], "nykaa": ["nykaa", "nykaafashion"],
+        "tatacliq": ["tatacliq", "tataneu", "tata cliq"], "jiomart": ["jiomart", "reliance"],
+        "snapdeal": ["snapdeal"], "croma": ["croma"], "swiggy": ["swiggy"],
+        "bigbasket": ["bigbasket"], "lenskart": ["lenskart"], "boat": ["boat-lifestyle", "boatlifestyle"],
+        "pepperfry": ["pepperfry"], "urbanladder": ["urbanladder"], "bewakoof": ["bewakoof"],
+        "souledstore": ["souledstore", "thesouledstore"], "purplle": ["purplle"],
+        "mamaearth": ["mamaearth"], "decathlon": ["decathlon"], "ikea": ["ikea"],
+        "oneplus": ["oneplus"], "samsung": ["samsung"], "apple": ["apple"],
+        "xiaomi": ["xiaomi", "mi.com"], "zara": ["zara"], "hm": ["hm.com", "h&m"],
+        "blinkit": ["blinkit", "grofers"], "zepto": ["zeptonow", "zepto"],
+        "pharmeasy": ["pharmeasy"], "tataone": ["1mg", "tata1mg"], "netmeds": ["netmeds"],
+        "caratlane": ["caratlane"], "tanishq": ["tanishq", "titan"],
+        "wakefit": ["wakefit"], "vijaysales": ["vijaysales"],
+        "shein": ["shein"], "limeroad": ["limeroad"],
+        "paytmmall": ["paytmmall", "paytm"], "shopclues": ["shopclues"],
+        "dunzo": ["dunzo"],
     }
-
-    for platform, hints in platform_hints.items():
-        for hint in hints:
-            if hint in sender_lower or hint in subject_lower:
+    for platform, keywords in hints.items():
+        for kw in keywords:
+            if kw in text:
                 return platform
-
     return "unknown"
 
 
-async def sync_gmail_orders(user_id: str, max_emails: int = 100) -> dict:
+async def sync_gmail_orders(user_id: str, max_emails: int = 200) -> dict:
     """
-    Main sync function. Called when user triggers 'Sync Gmail' in the app.
-    Returns a summary: { synced: N, new_orders: N, errors: N, details: [] }
+    Main sync function. Searches all known platforms + catch-all.
+    Returns: { synced, new_orders, errors, details }
     """
     from backend.services.gemini_service import extract_order_from_email
 
@@ -165,38 +204,34 @@ async def sync_gmail_orders(user_id: str, max_emails: int = 100) -> dict:
     new_orders = 0
     errors = 0
     details = []
-    seen_message_ids = set()
+    seen_ids = set()
 
-    # Search known platforms + catch-all
+    # Combine all platform queries + catch-all
     all_queries = {**PLATFORM_QUERIES, "catch_all": CATCH_ALL_QUERY}
 
     for platform, query in all_queries.items():
         try:
-            # Add time filter — only look at last 90 days
             time_query = f"({query}) newer_than:90d"
-
             results = (
-                service.users()
-                .messages()
-                .list(userId="me", q=time_query, maxResults=15)
+                service.users().messages()
+                .list(userId="me", q=time_query, maxResults=10)
                 .execute()
             )
             messages = results.get("messages", [])
-            details.append(f"{platform}: {len(messages)} emails found")
+            if messages:
+                details.append(f"{platform}: {len(messages)} emails")
 
             for msg_ref in messages:
-                if msg_ref["id"] in seen_message_ids:
+                if msg_ref["id"] in seen_ids:
                     continue
-                seen_message_ids.add(msg_ref["id"])
+                seen_ids.add(msg_ref["id"])
 
                 try:
                     msg = (
-                        service.users()
-                        .messages()
+                        service.users().messages()
                         .get(userId="me", id=msg_ref["id"], format="full")
                         .execute()
                     )
-
                     headers = msg.get("payload", {}).get("headers", [])
                     subject = _get_header(headers, "subject")
                     sender = _get_header(headers, "from")
@@ -204,14 +239,11 @@ async def sync_gmail_orders(user_id: str, max_emails: int = 100) -> dict:
                     body = _decode_email_body(msg.get("payload", {}))
 
                     if not body or len(body) < 50:
-                        continue  # Skip empty or too-short emails
+                        continue
 
-                    # Detect platform for catch-all query
                     actual_platform = platform if platform != "catch_all" else _detect_platform(sender, subject)
-
                     email_text = f"Subject: {subject}\nFrom: {sender}\nDate: {date_str}\n\n{body}"
 
-                    # Ask Gemini to extract order data
                     extracted = await extract_order_from_email(email_text, actual_platform)
 
                     if extracted and extracted.order_id and extracted.confidence and extracted.confidence >= 0.5:
@@ -231,7 +263,7 @@ async def sync_gmail_orders(user_id: str, max_emails: int = 100) -> dict:
                         )
                         await upsert_order(order)
                         new_orders += 1
-                        details.append(f"  ✓ {extracted.brand}: {extracted.item_name} ({extracted.order_id})")
+                        details.append(f"  \u2713 {extracted.brand}: {extracted.item_name}")
 
                     synced += 1
 
