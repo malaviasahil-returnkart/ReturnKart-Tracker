@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { api } from '../lib/api'
 import { formatINR, daysRemaining, urgencyLevel, urgencyColor, formatDate } from '../lib/formatters'
 import { getRewardsSummary } from '../lib/goodShopper'
+import { getDeliverySteps, getDeliveryProgress, getDeliveryLabel, getDeliveryIcon, getDeliveryColor, getOrderPhase } from '../lib/deliveryStatus'
 
 export default function Dashboard({ userId, onDisconnect, onSettings }) {
   const [orders, setOrders]       = useState([])
@@ -69,8 +70,6 @@ export default function Dashboard({ userId, onDisconnect, onSettings }) {
   const moneyAtRisk = urgentOrders.reduce((sum, o) => sum + (o.price || 0), 0)
   const savedOrders = allOrders.filter(o => o.status === 'returned')
   const moneySaved = savedOrders.reduce((sum, o) => sum + (o.price || 0), 0)
-
-  // Good Shopper Rewards
   const rewards = getRewardsSummary(allOrders)
 
   return (
@@ -93,7 +92,7 @@ export default function Dashboard({ userId, onDisconnect, onSettings }) {
         <div className="mx-4 mt-2 rounded-xl bg-vault-card card-border px-3 py-2 text-center text-xs text-vault-muted animate-fade-in">{syncResult}</div>
       )}
 
-      {/* Good Shopper Badge — tap to expand */}
+      {/* Good Shopper Badge */}
       <button onClick={() => setShowRewards(!showRewards)}
         className="mx-4 mt-4 bg-vault-card card-border rounded-2xl px-4 py-3 flex items-center justify-between active:scale-[0.98] transition-transform">
         <div className="flex items-center gap-3">
@@ -108,7 +107,6 @@ export default function Dashboard({ userId, onDisconnect, onSettings }) {
           <span className="text-vault-muted text-sm">{showRewards ? '\u25b2' : '\u25bc'}</span>
         </div>
       </button>
-
       {showRewards && <RewardsPanel rewards={rewards} />}
 
       {/* Summary Stats */}
@@ -193,7 +191,6 @@ export default function Dashboard({ userId, onDisconnect, onSettings }) {
         )}
       </div>
 
-      {/* Order detail bottom sheet */}
       {selected && (
         <OrderSheet
           order={selected}
@@ -208,6 +205,7 @@ export default function Dashboard({ userId, onDisconnect, onSettings }) {
 }
 
 
+/* ============== REWARDS PANEL ============== */
 function RewardsPanel({ rewards }) {
   const tiers = [
     { label: 'Bronze', min: 50, color: '#CD7F32' },
@@ -215,27 +213,20 @@ function RewardsPanel({ rewards }) {
     { label: 'Gold', min: 80, color: '#D4AF37' },
     { label: 'Platinum', min: 90, color: '#E5E4E2' },
   ]
-
   return (
     <div className="mx-4 mt-2 bg-vault-card card-border rounded-2xl px-4 py-4 flex flex-col gap-4 animate-fade-in">
-      {/* Trust Score Bar */}
       <div>
         <div className="flex items-center justify-between mb-2">
           <p className="text-vault-muted text-xs">Trust Score</p>
           <p className="text-vault-text font-bold text-lg">{rewards.score}<span className="text-vault-muted text-xs font-normal">/100</span></p>
         </div>
         <div className="w-full h-2.5 bg-vault-border rounded-full overflow-hidden">
-          <div className="h-full rounded-full transition-all duration-700"
-            style={{ width: `${rewards.score}%`, background: rewards.color }} />
+          <div className="h-full rounded-full transition-all duration-700" style={{ width: `${rewards.score}%`, background: rewards.color }} />
         </div>
         <div className="flex justify-between mt-1">
-          {tiers.map(t => (
-            <span key={t.label} className="text-[9px]" style={{ color: rewards.score >= t.min ? t.color : '#444' }}>{t.label}</span>
-          ))}
+          {tiers.map(t => (<span key={t.label} className="text-[9px]" style={{ color: rewards.score >= t.min ? t.color : '#444' }}>{t.label}</span>))}
         </div>
       </div>
-
-      {/* Stats Row */}
       <div className="grid grid-cols-3 gap-2">
         <div className="bg-vault-black rounded-xl px-3 py-2 text-center card-border">
           <p className="text-vault-safe font-bold text-lg">{rewards.keptCount}</p>
@@ -250,8 +241,6 @@ function RewardsPanel({ rewards }) {
           <p className="text-vault-muted text-[10px]">Keep Rate</p>
         </div>
       </div>
-
-      {/* Streak */}
       {rewards.streak > 0 && (
         <div className="flex items-center gap-2 bg-vault-black rounded-xl px-3 py-2 card-border">
           <span className="text-lg">{rewards.streakMsg.fire ? '\ud83d\udd25' : '\u2b50'}</span>
@@ -261,8 +250,6 @@ function RewardsPanel({ rewards }) {
           </div>
         </div>
       )}
-
-      {/* Next tier hint */}
       {rewards.score < 90 && (
         <p className="text-vault-muted text-[10px] text-center">
           {rewards.score < 50 ? 'Keep more items to build your trust score'
@@ -276,10 +263,76 @@ function RewardsPanel({ rewards }) {
 }
 
 
+/* ============== DELIVERY TIMELINE ============== */
+function DeliveryTimeline({ status, compact = false }) {
+  const steps = getDeliverySteps()
+  const { stepIndex } = getDeliveryProgress(status || 'ordered')
+
+  if (compact) {
+    // Mini inline version for order cards
+    return (
+      <div className="flex items-center gap-0.5 mt-1.5">
+        {steps.map((step, i) => (
+          <div key={step.key} className="flex items-center">
+            <div className={`w-1.5 h-1.5 rounded-full transition-colors ${
+              i <= stepIndex ? 'bg-vault-gold' : 'bg-vault-border'
+            }`} />
+            {i < steps.length - 1 && (
+              <div className={`w-3 h-[1px] ${
+                i < stepIndex ? 'bg-vault-gold' : 'bg-vault-border'
+              }`} />
+            )}
+          </div>
+        ))}
+        <span className="text-[9px] ml-1" style={{ color: getDeliveryColor(status || 'ordered') }}>
+          {getDeliveryLabel(status || 'ordered')}
+        </span>
+      </div>
+    )
+  }
+
+  // Full version for order detail sheet
+  return (
+    <div className="bg-vault-black card-border rounded-2xl px-4 py-4">
+      <p className="text-vault-muted text-[10px] uppercase tracking-wider mb-3">Delivery Journey</p>
+      <div className="flex items-center justify-between relative">
+        {/* Progress bar background */}
+        <div className="absolute top-3 left-4 right-4 h-[2px] bg-vault-border" />
+        {/* Progress bar filled */}
+        <div className="absolute top-3 left-4 h-[2px] bg-vault-gold transition-all duration-700"
+          style={{ width: `${stepIndex === 0 ? 0 : (stepIndex / (steps.length - 1)) * (100 - 8)}%` }} />
+
+        {steps.map((step, i) => {
+          const isActive = i <= stepIndex
+          const isCurrent = i === stepIndex
+          return (
+            <div key={step.key} className="flex flex-col items-center z-10 relative" style={{ flex: 1 }}>
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs transition-all ${
+                isCurrent ? 'bg-vault-gold ring-2 ring-vault-gold/30 scale-110'
+                : isActive ? 'bg-vault-gold'
+                : 'bg-vault-border'
+              }`}>
+                {isActive ? <span className="text-[10px]">{step.icon}</span> : <span className="text-[8px] text-vault-muted">{i + 1}</span>}
+              </div>
+              <span className={`text-[9px] mt-1.5 text-center leading-tight ${
+                isCurrent ? 'text-vault-gold font-semibold' : isActive ? 'text-vault-text' : 'text-vault-muted'
+              }`}>{step.short}</span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+
+/* ============== ORDER CARD ============== */
 function OrderCard({ order, onTap }) {
   const days = daysRemaining(order.return_deadline)
   const level = urgencyLevel(days)
   const color = urgencyColor(level)
+  const phase = getOrderPhase(order)
+
   const statusBadge = order.status === 'returned'
     ? { text: 'Returned', bg: 'bg-green-900/30', textColor: 'text-green-400' }
     : order.status === 'kept'
@@ -287,6 +340,7 @@ function OrderCard({ order, onTap }) {
     : order.status === 'expired'
     ? { text: 'Kept (expired)', bg: 'bg-vault-border', textColor: 'text-vault-muted' }
     : null
+
   const cardClass = order.status === 'expired' || order.status === 'returned' || order.status === 'kept'
     ? 'opacity-60 card-border'
     : level === 'critical' || level === 'urgent' ? 'urgent-border' : 'card-border'
@@ -303,14 +357,20 @@ function OrderCard({ order, onTap }) {
           </div>
           <p className="text-vault-text font-medium text-sm truncate">{order.item_name}</p>
           <p className="text-vault-muted text-xs mt-0.5">{formatINR(order.price)} \u00b7 {formatDate(order.order_date)}</p>
+
+          {/* Mini delivery timeline for pre-delivery orders */}
+          {phase === 'pre_delivery' && order.delivery_status && order.delivery_status !== 'delivered' && (
+            <DeliveryTimeline status={order.delivery_status} compact={true} />
+          )}
         </div>
         <div className="flex flex-col items-center flex-shrink-0">
           {order.status === 'returned' ? <span className="text-green-400 text-xl">\u21a9</span>
             : order.status === 'kept' ? <span className="text-blue-400 text-xl">\u2713</span>
+            : phase === 'pre_delivery' ? <span className="text-lg">{getDeliveryIcon(order.delivery_status)}</span>
             : days === null ? <span className="text-vault-muted text-xs">\u2014</span>
             : days < 0 ? <span className="text-vault-muted text-xs font-medium">Expired</span>
             : <><span className="text-2xl font-bold" style={{ color }}>{days}</span><span className="text-[10px]" style={{ color: '#A0A0A0' }}>day{days !== 1 ? 's' : ''}</span></>}
-          {order.status === 'active' && <CountdownArc days={days} color={color} />}
+          {phase === 'return_window' && order.status === 'active' && <CountdownArc days={days} color={color} />}
         </div>
       </div>
     </button>
@@ -331,10 +391,12 @@ function CountdownArc({ days, color }) {
 }
 
 
+/* ============== ORDER DETAIL SHEET ============== */
 function OrderSheet({ order, userId, onClose, onKept, onReturned }) {
   const days = daysRemaining(order.return_deadline)
   const level = urgencyLevel(days)
   const color = urgencyColor(level)
+  const phase = getOrderPhase(order)
   const [showEvidence, setShowEvidence] = useState(false)
 
   return (
@@ -347,17 +409,31 @@ function OrderSheet({ order, userId, onClose, onKept, onReturned }) {
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-semibold text-vault-muted px-2 py-0.5 rounded-full bg-vault-border">{order.brand}</span>
             {order.is_replacement_only && <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-900/40 text-yellow-400">Replace only</span>}
+            {phase === 'pre_delivery' && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-900/30 text-blue-400">{getDeliveryLabel(order.delivery_status)}</span>
+            )}
           </div>
           <h2 className="text-vault-text font-semibold text-base mt-2">{order.item_name}</h2>
           <p className="text-vault-muted text-sm mt-0.5">Order #{order.order_id}</p>
         </div>
 
+        {/* Delivery Timeline */}
+        <DeliveryTimeline status={order.delivery_status || 'delivered'} />
+
+        {/* Dates and info */}
         <div className="grid grid-cols-2 gap-3">
           {[
             { label: 'Order Value', value: formatINR(order.price), highlight: true },
-            { label: 'Days Remaining', value: days === null ? '\u2014' : days < 0 ? 'Expired' : `${days} days`, color },
+            phase === 'return_window' || phase === 'decided'
+              ? { label: 'Days Remaining', value: days === null ? '\u2014' : days < 0 ? 'Expired' : `${days} days`, color }
+              : { label: 'Delivery Status', value: getDeliveryLabel(order.delivery_status || 'ordered'), color: getDeliveryColor(order.delivery_status || 'ordered') },
             { label: 'Order Date', value: formatDate(order.order_date) },
-            { label: 'Return Deadline', value: formatDate(order.return_deadline) },
+            order.delivered_date
+              ? { label: 'Delivered', value: formatDate(order.delivered_date) }
+              : order.shipped_date
+              ? { label: 'Shipped', value: formatDate(order.shipped_date) }
+              : { label: 'Return Deadline', value: formatDate(order.return_deadline) },
+            phase !== 'pre_delivery' && { label: 'Return Deadline', value: formatDate(order.return_deadline) },
             order.category && { label: 'Category', value: order.category },
             order.courier_partner && { label: 'Courier', value: order.courier_partner },
           ].filter(Boolean).map(item => (
@@ -386,10 +462,10 @@ function OrderSheet({ order, userId, onClose, onKept, onReturned }) {
           </div>
           <span className="text-vault-muted text-sm">{showEvidence ? '\u25b2' : '\u25bc'}</span>
         </button>
-
         {showEvidence && <EvidenceLocker orderId={order.id} userId={userId} />}
 
-        {order.status === 'active' && (
+        {/* Action buttons */}
+        {order.status === 'active' && phase === 'return_window' && (
           <div className="flex flex-col gap-3">
             <button onClick={() => onReturned(order.id)}
               className="w-full bg-vault-gold text-vault-black py-4 rounded-2xl font-semibold text-base active:scale-95 transition-transform">
@@ -399,6 +475,14 @@ function OrderSheet({ order, userId, onClose, onKept, onReturned }) {
               className="w-full bg-vault-card card-border text-vault-muted py-4 rounded-2xl font-semibold text-base active:scale-95 transition-transform">
               \u2713 I'm Keeping This
             </button>
+          </div>
+        )}
+
+        {order.status === 'active' && phase === 'pre_delivery' && (
+          <div className="bg-blue-900/15 border border-blue-800/30 rounded-2xl px-4 py-4 text-center">
+            <span className="text-2xl">{getDeliveryIcon(order.delivery_status)}</span>
+            <p className="text-blue-400 font-medium text-sm mt-1">{getDeliveryLabel(order.delivery_status)}</p>
+            <p className="text-vault-muted text-xs mt-0.5">Return window starts after delivery</p>
           </div>
         )}
 
@@ -419,6 +503,7 @@ function OrderSheet({ order, userId, onClose, onKept, onReturned }) {
 }
 
 
+/* ============== EVIDENCE LOCKER ============== */
 function EvidenceLocker({ orderId, userId }) {
   const [evidence, setEvidence] = useState([])
   const [loading, setLoading] = useState(true)
@@ -430,23 +515,17 @@ function EvidenceLocker({ orderId, userId }) {
 
   async function loadEvidence() {
     setLoading(true)
-    try {
-      const data = await api.getEvidence(orderId, userId)
-      setEvidence(data.evidence || [])
-    } catch(e) { console.error(e) }
+    try { const data = await api.getEvidence(orderId, userId); setEvidence(data.evidence || []) }
+    catch(e) { console.error(e) }
     finally { setLoading(false) }
   }
 
   async function handleFileSelect(e) {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 10 * 1024 * 1024) {
-      setError('File too large (max 10MB)'); setTimeout(() => setError(null), 3000); return
-    }
+    if (file.size > 10 * 1024 * 1024) { setError('File too large (max 10MB)'); setTimeout(() => setError(null), 3000); return }
     const allowed = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/quicktime']
-    if (!allowed.includes(file.type)) {
-      setError('Only JPEG, PNG, WebP, MP4 allowed'); setTimeout(() => setError(null), 3000); return
-    }
+    if (!allowed.includes(file.type)) { setError('Only JPEG, PNG, WebP, MP4 allowed'); setTimeout(() => setError(null), 3000); return }
     setUploading(true); setError(null)
     try {
       const base64 = await fileToBase64(file)
@@ -466,11 +545,9 @@ function EvidenceLocker({ orderId, userId }) {
       <input ref={fileRef} type="file" accept="image/*,video/mp4" capture="environment" onChange={handleFileSelect} className="hidden" />
       <button onClick={() => fileRef.current?.click()} disabled={uploading}
         className="w-full bg-vault-black card-border rounded-xl px-4 py-3 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform">
-        {uploading ? (
-          <><div className="w-4 h-4 border-2 border-vault-gold border-t-transparent rounded-full animate-spin" /><span className="text-vault-muted text-sm">Uploading\u2026</span></>
-        ) : (
-          <><span className="text-lg">\ud83d\udcf7</span><span className="text-vault-gold text-sm font-medium">Add Photo / Video</span></>
-        )}
+        {uploading
+          ? <><div className="w-4 h-4 border-2 border-vault-gold border-t-transparent rounded-full animate-spin" /><span className="text-vault-muted text-sm">Uploading\u2026</span></>
+          : <><span className="text-lg">\ud83d\udcf7</span><span className="text-vault-gold text-sm font-medium">Add Photo / Video</span></>}
       </button>
       {error && <p className="text-red-400 text-xs text-center">{error}</p>}
       {loading ? (
@@ -478,22 +555,16 @@ function EvidenceLocker({ orderId, userId }) {
       ) : evidence.length === 0 ? (
         <p className="text-vault-muted text-xs text-center py-2">No evidence uploaded yet.</p>
       ) : (
-        <div className="grid grid-cols-3 gap-2">
-          {evidence.map(item => (
-            <div key={item.id} className="relative group">
-              {item.file_type?.startsWith('video') ? (
-                <div className="w-full aspect-square bg-vault-black rounded-xl card-border flex items-center justify-center"><span className="text-2xl">\ud83c\udfac</span></div>
-              ) : (
-                <img src={item.file_url} alt="Evidence" className="w-full aspect-square object-cover rounded-xl card-border" />
-              )}
-              <button onClick={(e) => { e.stopPropagation(); handleDelete(item.id) }}
-                className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity">\u00d7</button>
-              <p className="text-vault-muted text-[9px] mt-1 text-center">
-                {new Date(item.uploaded_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-              </p>
-            </div>
-          ))}
-        </div>
+        <div className="grid grid-cols-3 gap-2">{evidence.map(item => (
+          <div key={item.id} className="relative group">
+            {item.file_type?.startsWith('video')
+              ? <div className="w-full aspect-square bg-vault-black rounded-xl card-border flex items-center justify-center"><span className="text-2xl">\ud83c\udfac</span></div>
+              : <img src={item.file_url} alt="Evidence" className="w-full aspect-square object-cover rounded-xl card-border" />}
+            <button onClick={(e) => { e.stopPropagation(); handleDelete(item.id) }}
+              className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity">\u00d7</button>
+            <p className="text-vault-muted text-[9px] mt-1 text-center">{new Date(item.uploaded_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
+          </div>
+        ))}</div>
       )}
       <p className="text-vault-muted text-[10px] text-center">\ud83d\udd12 Evidence is encrypted and only visible to you. Max 10MB per file.</p>
     </div>
