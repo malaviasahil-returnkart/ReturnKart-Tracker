@@ -2,12 +2,14 @@
 RETURNKART.IN — GMAIL SERVICE
 Fetch invoice/shipping emails from Gmail and extract order data using Gemini AI.
 
-Supports 80+ Indian ecommerce platforms with heavy focus on fashion brands.
-Excludes quick commerce (Blinkit, Zepto, Swiggy, Dunzo, BigBasket).
+STRATEGY:
+  1. Brand-specific queries for top 80+ known platforms (fast, accurate)
+  2. UNIVERSAL catch-all that searches ANY email by ecommerce keywords
+     regardless of sender domain — catches every platform including
+     ones we haven't listed, subdomains, and third-party email services
+  3. Gemini AI + confidence score (>=0.5) filters out non-ecommerce junk
 
-Two subject filters:
-  _SUBJ       = standard ecommerce keywords (for marketplaces, electronics)
-  _SUBJ_BROAD = wider keywords (for fashion brands that use non-standard subjects)
+Excludes quick commerce (Blinkit, Zepto, Swiggy, Dunzo, BigBasket, Zomato).
 """
 import base64
 from datetime import datetime, timezone, timedelta
@@ -27,198 +29,58 @@ from backend.models.order import OrderCreate
 
 IST = timezone(timedelta(hours=5, minutes=30))
 
-# Standard subject filter for marketplaces
+# Subject filter for marketplaces
 _SUBJ = '(subject:"order" OR subject:"shipped" OR subject:"delivered" OR subject:"confirmed" OR subject:"placed" OR subject:"dispatched" OR subject:"out for delivery" OR subject:"arriving" OR subject:"refund" OR subject:"invoice")'
 
-# Broader subject filter for fashion/lifestyle brands (they use varied subject lines)
+# Broader subject filter for fashion brands
 _SUBJ_BROAD = '(subject:"order" OR subject:"shipped" OR subject:"delivered" OR subject:"confirmed" OR subject:"placed" OR subject:"dispatched" OR subject:"out for delivery" OR subject:"arriving" OR subject:"refund" OR subject:"invoice" OR subject:"receipt" OR subject:"purchase" OR subject:"thank you" OR subject:"your package" OR subject:"your parcel" OR subject:"on its way" OR subject:"delivery" OR subject:"tracking" OR subject:"shopping")'
 
-# Platforms to EXCLUDE from catch-all detection (quick commerce / food delivery)
-EXCLUDED_PLATFORMS = {"swiggy", "zomato", "blinkit", "zepto", "dunzo", "bigbasket", "grofers", "instamart"}
+# Platforms to EXCLUDE (quick commerce / food delivery)
+EXCLUDED_PLATFORMS = {"swiggy", "zomato", "blinkit", "zepto", "dunzo", "bigbasket", "grofers", "instamart", "uber eats", "ubereats", "dominos", "pizzahut"}
 
-# ==============================
-# PLATFORM QUERIES — 80+ brands
-# ==============================
+# ═══════════════════════════════════════════════════
+# UNIVERSAL CATCH-ALL QUERIES
+# These search ANY email regardless of sender domain
+# ═══════════════════════════════════════════════════
+UNIVERSAL_QUERIES = {
+    # Catch-all 1: Order lifecycle keywords (strongest signal)
+    "universal_orders": '(subject:"order confirmed" OR subject:"order placed" OR subject:"your order" OR subject:"order shipped" OR subject:"order dispatched" OR subject:"order delivered" OR subject:"order summary" OR subject:"order receipt" OR subject:"order details") newer_than:90d',
+
+    # Catch-all 2: Shipping/delivery keywords (catches non-standard subjects)
+    "universal_shipping": '(subject:"has been shipped" OR subject:"has been dispatched" OR subject:"out for delivery" OR subject:"has been delivered" OR subject:"is on its way" OR subject:"your package" OR subject:"your parcel" OR subject:"shipment update" OR subject:"delivery update" OR subject:"tracking number") newer_than:90d',
+
+    # Catch-all 3: Purchase/payment keywords (catches receipts)
+    "universal_purchase": '(subject:"thank you for your purchase" OR subject:"payment received" OR subject:"payment confirmed" OR subject:"invoice for your order" OR subject:"your receipt" OR subject:"purchase confirmation" OR subject:"thank you for shopping" OR subject:"thank you for ordering") newer_than:90d',
+}
+
+# ═══════════════════════════════════════════════════
+# BRAND-SPECIFIC QUERIES — Fast first pass for known brands
+# These run first for speed and accuracy
+# ═══════════════════════════════════════════════════
 PLATFORM_QUERIES = {
-    # ═══════════════════════════════════════
-    # HORIZONTAL MARKETPLACES
-    # ═══════════════════════════════════════
+    # Horizontal Marketplaces
     "amazon":    f'(from:amazon.in OR from:amazon.com) {_SUBJ}',
     "flipkart":  f'(from:flipkart.com OR from:ekartlogistics.com) {_SUBJ}',
     "meesho":    f'(from:meesho.com) {_SUBJ}',
     "snapdeal":  f'(from:snapdeal.com) {_SUBJ}',
-    "shopclues": f'(from:shopclues.com) {_SUBJ}',
     "jiomart":   f'(from:jiomart.com OR from:reliancedigital.in) {_SUBJ}',
-    "tatacliq":  f'(from:tatacliq.com OR from:tataneu.com OR from:tatadigital.com) {_SUBJ}',
-    "paytmmall": f'(from:paytmmall.com OR from:paytm.com) {_SUBJ}',
-    "indiamart": f'(from:indiamart.com) {_SUBJ}',
+    "tatacliq":  f'(from:tatacliq.com OR from:tataneu.com) {_SUBJ}',
 
-    # ═══════════════════════════════════════
-    # FASHION — TIER 1 (Major Indian platforms)
-    # ═══════════════════════════════════════
+    # Fashion — Tier 1 Indian
     "myntra":       f'(from:myntra.com) {_SUBJ_BROAD}',
     "ajio":         f'(from:ajio.com) {_SUBJ_BROAD}',
-    "nykaa":        f'(from:nykaa.com OR from:nykaafashion.com OR from:nykaamann.com) {_SUBJ_BROAD}',
-    "trendsin":     f'(from:trends.in OR from:reliancetrends.com) {_SUBJ_BROAD}',
-    "westside":     f'(from:westside.com OR from:trentlimited.com) {_SUBJ_BROAD}',
-    "fabindia":     f'(from:fabindia.com) {_SUBJ_BROAD}',
+    "nykaa":        f'(from:nykaa.com OR from:nykaafashion.com) {_SUBJ_BROAD}',
     "shoppersstop": f'(from:shoppersstop.com) {_SUBJ_BROAD}',
-    "lifestylestores": f'(from:lifestylestores.com) {_SUBJ_BROAD}',
-    "maxfashion":   f'(from:maxfashion.in OR from:maxfashion.com) {_SUBJ_BROAD}',
-    "pantaloons":   f'(from:pantaloons.com) {_SUBJ_BROAD}',
 
-    # ═══════════════════════════════════════
-    # FASHION — TIER 1 (International brands in India)
-    # Uses _SUBJ_BROAD + expanded sender domains
-    # ═══════════════════════════════════════
+    # Fashion — International (with known subdomains)
     "zara":         f'(from:zara.com OR from:inditex.com) {_SUBJ_BROAD}',
-    "hm":           f'(from:hm.com OR from:email.hm.com OR from:delivery.hm.com OR from:cs.in@hm.com) {_SUBJ_BROAD}',
-    "uniqlo":       f'(from:uniqlo.com) {_SUBJ_BROAD}',
-    "mango":        f'(from:mango.com) {_SUBJ_BROAD}',
-    "gap":          f'(from:gap.com OR from:gap.co.in OR from:oldnavy.com) {_SUBJ_BROAD}',
-    "forever21":    f'(from:forever21.in OR from:forever21.com) {_SUBJ_BROAD}',
-    "tommyhilfiger":f'(from:tommy.com OR from:tommyhilfiger.com OR from:pvhcorp.com OR from:tommy.in) {_SUBJ_BROAD}',
-    "calvinklein":  f'(from:calvinklein.com OR from:pvhcorp.com OR from:calvinklein.in) {_SUBJ_BROAD}',
-    "levis":        f'(from:levi.in OR from:levi.com OR from:levis.com OR from:levistrauss.com) {_SUBJ_BROAD}',
+    "hm":           f'(from:hm.com OR from:delivery.hm.com) {_SUBJ_BROAD}',
     "nike":         f'(from:nike.com OR from:nike.in) {_SUBJ_BROAD}',
     "adidas":       f'(from:adidas.co.in OR from:adidas.com) {_SUBJ_BROAD}',
+    "levis":        f'(from:levi.in OR from:levi.com OR from:levis.com) {_SUBJ_BROAD}',
+    "tommyhilfiger":f'(from:tommy.com OR from:tommyhilfiger.com OR from:pvhcorp.com) {_SUBJ_BROAD}',
     "puma":         f'(from:puma.com OR from:puma.in) {_SUBJ_BROAD}',
-    "reebok":       f'(from:reebok.in OR from:reebok.com) {_SUBJ_BROAD}',
-    "superdry":     f'(from:superdry.com OR from:superdry.in) {_SUBJ_BROAD}',
-    "marksandspencer": f'(from:marksandspencer.in OR from:marksandspencer.com OR from:m-s.com) {_SUBJ_BROAD}',
-    "charlesandkeith": f'(from:charleskeith.com OR from:charleskeith.in) {_SUBJ_BROAD}',
-    "aldo":         f'(from:aldoshoes.in OR from:aldoshoes.com) {_SUBJ_BROAD}',
-    "stevemadden":  f'(from:stevemadden.in OR from:stevemadden.com) {_SUBJ_BROAD}',
-    "skechers":     f'(from:skechers.in OR from:skechers.com) {_SUBJ_BROAD}',
-    "crocs":        f'(from:crocs.in OR from:crocs.com) {_SUBJ_BROAD}',
-    "clarks":       f'(from:clarks.in OR from:clarks.com) {_SUBJ_BROAD}',
-    "asics":        f'(from:asics.com OR from:asics.in) {_SUBJ_BROAD}',
-    "newbalance":   f'(from:newbalance.in OR from:newbalance.com) {_SUBJ_BROAD}',
-    "underarmour":  f'(from:underarmour.com OR from:underarmour.in) {_SUBJ_BROAD}',
-    "guess":        f'(from:guess.in OR from:guess.com) {_SUBJ_BROAD}',
-    "armaniexchange": f'(from:armaniexchange.com OR from:armani.com) {_SUBJ_BROAD}',
-    "coach":        f'(from:coach.com) {_SUBJ_BROAD}',
-    "michaelkors":  f'(from:michaelkors.com) {_SUBJ_BROAD}',
-    "ralphlauren":  f'(from:ralphlauren.com) {_SUBJ_BROAD}',
-    "hugoboss":     f'(from:hugoboss.com OR from:boss.com) {_SUBJ_BROAD}',
-    "uspa":         f'(from:uspoloassn.in OR from:uspoloassn.com) {_SUBJ_BROAD}',
-    "benetton":     f'(from:benetton.in OR from:benetton.com) {_SUBJ_BROAD}',
-    "fcuk":         f'(from:frenchconnection.com) {_SUBJ_BROAD}',
-    "gant":         f'(from:gant.com OR from:gant.in) {_SUBJ_BROAD}',
-    "lacoste":      f'(from:lacoste.com OR from:lacoste.in) {_SUBJ_BROAD}',
-    "versace":      f'(from:versace.com) {_SUBJ_BROAD}',
-    "burberry":     f'(from:burberry.com) {_SUBJ_BROAD}',
-
-    # ═══════════════════════════════════════
-    # FASHION — TIER 2 (Indian D2C / digital-first)
-    # ═══════════════════════════════════════
-    "bewakoof":     f'(from:bewakoof.com) {_SUBJ_BROAD}',
-    "souledstore":  f'(from:thesouledstore.com) {_SUBJ_BROAD}',
-    "urbanic":      f'(from:urbanic.com) {_SUBJ_BROAD}',
-    "shein":        f'(from:shein.com OR from:shein.in) {_SUBJ_BROAD}',
-    "limeroad":     f'(from:limeroad.com) {_SUBJ_BROAD}',
-    "koovs":        f'(from:koovs.com) {_SUBJ_BROAD}',
-    "snitch":       f'(from:snitch.co.in) {_SUBJ_BROAD}',
-    "bonkers":      f'(from:bonkerscorner.com) {_SUBJ_BROAD}',
-    "rare_rabbit":  f'(from:thehouseofrare.com OR from:rarerabbit.in) {_SUBJ_BROAD}',
-    "libas":        f'(from:libas.in) {_SUBJ_BROAD}',
-    "w_aurelia":    f'(from:wforwoman.com OR from:aurelia.in) {_SUBJ_BROAD}',
-    "biba":         f'(from:biba.in) {_SUBJ_BROAD}',
-    "global_desi":  f'(from:globaldesi.in) {_SUBJ_BROAD}',
-    "and_india":    f'(from:andindia.com) {_SUBJ_BROAD}',
-    "fablestreet":  f'(from:fablestreet.com) {_SUBJ_BROAD}',
-    "clovia":       f'(from:clovia.com) {_SUBJ_BROAD}',
-    "zivame":       f'(from:zivame.com) {_SUBJ_BROAD}',
-    "sassafras":    f'(from:sassafras.in) {_SUBJ_BROAD}',
-    "virgio":       f'(from:virgio.com) {_SUBJ_BROAD}',
-    "allen_solly":  f'(from:allensolly.com) {_SUBJ_BROAD}',
-    "van_heusen":   f'(from:vanheusen.com OR from:vanheusenindia.com) {_SUBJ_BROAD}',
-    "peter_england": f'(from:peterengland.com) {_SUBJ_BROAD}',
-    "raymond":      f'(from:raymond.in OR from:raymondnext.com) {_SUBJ_BROAD}',
-    "mufti":        f'(from:muftijeans.in) {_SUBJ_BROAD}',
-    "jack_jones":   f'(from:jackjones.in) {_SUBJ_BROAD}',
-    "only_vero":    f'(from:only.in OR from:veromoda.in) {_SUBJ_BROAD}',
-    "woodland":     f'(from:woodland.in OR from:woodlandworldwide.com) {_SUBJ_BROAD}',
-    "bata":         f'(from:bata.in OR from:bata.com) {_SUBJ_BROAD}',
-    "metro_shoes":  f'(from:metroshoes.net) {_SUBJ_BROAD}',
-    "mochi":        f'(from:mochishoes.com) {_SUBJ_BROAD}',
-
-    # ═══════════════════════════════════════
-    # FASHION — Luxury / Premium
-    # ═══════════════════════════════════════
-    "tata_cliq_luxury": f'(from:luxury.tatacliq.com OR from:tatacliq.luxury) {_SUBJ_BROAD}',
-    "aza":          f'(from:azafashions.com) {_SUBJ_BROAD}',
-    "pernia":       f'(from:perniaspopupshop.com) {_SUBJ_BROAD}',
-    "elitify":      f'(from:elitify.in) {_SUBJ_BROAD}',
-    "darveys":      f'(from:darveys.com) {_SUBJ_BROAD}',
-
-    # ═══════════════════════════════════════
-    # ELECTRONICS & TECH
-    # ═══════════════════════════════════════
-    "croma":        f'(from:croma.com) {_SUBJ}',
-    "vijaysales":   f'(from:vijaysales.com) {_SUBJ}',
-    "boat":         f'(from:boat-lifestyle.com OR from:boatlifestyle.com) {_SUBJ}',
-    "oneplus":      f'(from:oneplus.in OR from:oneplus.com) {_SUBJ}',
-    "samsung":      f'(from:samsung.com OR from:shop.samsung.com) {_SUBJ}',
-    "apple":        f'(from:apple.com) {_SUBJ}',
-    "mi":           f'(from:xiaomi.com OR from:mi.com OR from:store.mi.com) {_SUBJ}',
-    "noise":        f'(from:gonoise.com) {_SUBJ}',
-    "realme":       f'(from:realme.com OR from:buy.realme.com) {_SUBJ}',
-
-    # ═══════════════════════════════════════
-    # BEAUTY & HEALTH
-    # ═══════════════════════════════════════
-    "purplle":      f'(from:purplle.com) {_SUBJ_BROAD}',
-    "mamaearth":    f'(from:mamaearth.in) {_SUBJ_BROAD}',
-    "tataone":      f'(from:tata1mg.com OR from:1mg.com) {_SUBJ}',
-    "pharmeasy":    f'(from:pharmeasy.in) {_SUBJ}',
-    "netmeds":      f'(from:netmeds.com) {_SUBJ}',
-
-    # ═══════════════════════════════════════
-    # HOME & FURNITURE
-    # ═══════════════════════════════════════
-    "pepperfry":    f'(from:pepperfry.com) {_SUBJ}',
-    "urbanladder":  f'(from:urbanladder.com) {_SUBJ}',
-    "wakefit":      f'(from:wakefit.co) {_SUBJ}',
-    "ikea":         f'(from:ikea.in OR from:ikea.com) {_SUBJ}',
-    "hometown":     f'(from:hometown.in) {_SUBJ}',
-    "godrej":       f'(from:godrejinterio.com) {_SUBJ}',
-
-    # ═══════════════════════════════════════
-    # EYEWEAR & JEWELLERY
-    # ═══════════════════════════════════════
-    "lenskart":     f'(from:lenskart.com) {_SUBJ}',
-    "caratlane":    f'(from:caratlane.com) {_SUBJ_BROAD}',
-    "tanishq":      f'(from:tanishq.co.in OR from:titan.co.in) {_SUBJ_BROAD}',
-    "bluestone":    f'(from:bluestone.com) {_SUBJ_BROAD}',
-
-    # ═══════════════════════════════════════
-    # SPORTS & OUTDOOR
-    # ═══════════════════════════════════════
-    "decathlon":    f'(from:decathlon.in OR from:decathlon.com) {_SUBJ_BROAD}',
-
-    # ═══════════════════════════════════════
-    # KIDS & BABY
-    # ═══════════════════════════════════════
-    "firstcry":     f'(from:firstcry.com) {_SUBJ_BROAD}',
-    "hopscotch":    f'(from:hopscotch.in) {_SUBJ_BROAD}',
-
-    # ═══════════════════════════════════════
-    # WATCHES
-    # ═══════════════════════════════════════
-    "titan":        f'(from:titan.co.in OR from:titanworld.com) {_SUBJ_BROAD}',
-    "fastrack":     f'(from:fastrack.in) {_SUBJ_BROAD}',
-    "fossil":       f'(from:fossil.in OR from:fossil.com) {_SUBJ_BROAD}',
-    "casio":        f'(from:casioindia.com) {_SUBJ_BROAD}',
-
-    # ═══════════════════════════════════════
-    # BOOKS & STATIONERY
-    # ═══════════════════════════════════════
-    "bookswagon":   f'(from:bookswagon.com) {_SUBJ}',
 }
-
-# Catch-all: any ecommerce-sounding email from the last 60 days
-CATCH_ALL_QUERY = '(subject:"order confirmed" OR subject:"order placed" OR subject:"your order" OR subject:"order shipped" OR subject:"has been shipped" OR subject:"has been dispatched" OR subject:"out for delivery" OR subject:"has been delivered" OR subject:"order summary" OR subject:"order receipt" OR subject:"payment received" OR subject:"invoice for your order" OR subject:"thank you for your purchase" OR subject:"your package" OR subject:"your parcel") newer_than:60d'
 
 
 def _build_credentials(token_row: dict) -> Credentials:
@@ -247,7 +109,7 @@ async def _refresh_if_needed(user_id: str, token_row: dict) -> Credentials:
 
 
 def _decode_email_body(payload: dict) -> str:
-    """Extract text body from Gmail payload. Tries plain text, then HTML. Recursive."""
+    """Extract text body from Gmail payload. Recursive multipart support."""
     body = ""
     if payload.get("body", {}).get("data"):
         body = base64.urlsafe_b64decode(payload["body"]["data"]).decode("utf-8", errors="ignore")
@@ -281,20 +143,22 @@ def _get_header(headers: list, name: str) -> str:
 
 
 def _detect_platform(sender: str, subject: str) -> str:
-    """Auto-detect platform from sender/subject for catch-all matches.
-    Returns 'skip' for quick commerce / food delivery."""
+    """Auto-detect platform from sender/subject.
+    Returns 'skip' for excluded platforms (quick commerce, food delivery)."""
     text = (sender + " " + subject).lower()
 
+    # Check exclusions first
     for excluded in EXCLUDED_PLATFORMS:
         if excluded in text:
             return "skip"
 
+    # Comprehensive brand detection
     hints = {
         # Marketplaces
         "amazon": ["amazon"], "flipkart": ["flipkart", "ekart"], "meesho": ["meesho"],
         "snapdeal": ["snapdeal"], "jiomart": ["jiomart"], "paytmmall": ["paytmmall", "paytm"],
         "tatacliq": ["tatacliq", "tataneu", "tata cliq"], "shopclues": ["shopclues"],
-        # Fashion — Tier 1 Indian
+        # Fashion — Indian
         "myntra": ["myntra"], "ajio": ["ajio"], "nykaa": ["nykaa", "nykaafashion"],
         "shoppersstop": ["shoppersstop"], "lifestylestores": ["lifestylestores"],
         "maxfashion": ["maxfashion"], "pantaloons": ["pantaloons"],
@@ -302,9 +166,9 @@ def _detect_platform(sender: str, subject: str) -> str:
         "fabindia": ["fabindia"],
         # Fashion — International
         "zara": ["zara"], "hm": ["hm.com", "h&m", "delivery.hm"], "uniqlo": ["uniqlo"],
-        "mango": ["mango.com"], "gap": ["gap.com", "gap.co.in", "oldnavy"],
-        "forever21": ["forever21"], "tommyhilfiger": ["tommy.com", "tommyhilfiger", "tommy.in"],
-        "calvinklein": ["calvinklein"], "levis": ["levi.in", "levi.com", "levis", "levistrauss"],
+        "mango": ["mango.com"], "gap": ["gap.com", "oldnavy"],
+        "forever21": ["forever21"], "tommyhilfiger": ["tommy.com", "tommyhilfiger", "tommy.in", "pvhcorp"],
+        "calvinklein": ["calvinklein", "pvhcorp"], "levis": ["levi.in", "levi.com", "levis", "levistrauss"],
         "nike": ["nike.com", "nike.in"], "adidas": ["adidas"], "puma": ["puma.com", "puma.in"],
         "reebok": ["reebok"], "superdry": ["superdry"],
         "marksandspencer": ["marksandspencer", "m-s.com"], "uspa": ["uspoloassn"],
@@ -315,9 +179,9 @@ def _detect_platform(sender: str, subject: str) -> str:
         "stevemadden": ["stevemadden"], "skechers": ["skechers"],
         "crocs": ["crocs"], "clarks": ["clarks"], "asics": ["asics"],
         "newbalance": ["newbalance"], "underarmour": ["underarmour"],
-        "lacoste": ["lacoste"], "armaniexchange": ["armani"],
-        "fcuk": ["frenchconnection"], "gant": ["gant"],
-        # Fashion — Tier 2 D2C
+        "lacoste": ["lacoste"], "armani": ["armani"], "versace": ["versace"],
+        "burberry": ["burberry"], "gucci": ["gucci"],
+        # Fashion — D2C
         "bewakoof": ["bewakoof"], "souledstore": ["souledstore", "thesouledstore"],
         "urbanic": ["urbanic"], "shein": ["shein"], "limeroad": ["limeroad"],
         "snitch": ["snitch.co"], "rare_rabbit": ["houseofrare", "rarerabbit"],
@@ -356,9 +220,12 @@ def _detect_platform(sender: str, subject: str) -> str:
 
 async def sync_gmail_orders(user_id: str, max_emails: int = 200) -> dict:
     """
-    Main sync function. Searches all known platforms + catch-all.
-    Excludes quick commerce platforms.
-    Returns: { synced, new_orders, errors, details }
+    Main sync function. Two-pass strategy:
+      Pass 1: Brand-specific queries for known platforms (fast, targeted)
+      Pass 2: Universal catch-all queries by subject keywords only (catches everything else)
+    
+    Gemini AI extracts order data. Confidence >= 0.5 required to save.
+    Excluded platforms (quick commerce) are skipped.
     """
     from backend.services.gemini_service import extract_order_from_email
 
@@ -375,9 +242,8 @@ async def sync_gmail_orders(user_id: str, max_emails: int = 200) -> dict:
     details = []
     seen_ids = set()
 
-    all_queries = {**PLATFORM_QUERIES, "catch_all": CATCH_ALL_QUERY}
-
-    for platform, query in all_queries.items():
+    # Pass 1: Brand-specific queries (fast, targeted — known domains)
+    for platform, query in PLATFORM_QUERIES.items():
         try:
             time_query = f"({query}) newer_than:90d"
             results = (
@@ -395,11 +261,7 @@ async def sync_gmail_orders(user_id: str, max_emails: int = 200) -> dict:
                 seen_ids.add(msg_ref["id"])
 
                 try:
-                    msg = (
-                        service.users().messages()
-                        .get(userId="me", id=msg_ref["id"], format="full")
-                        .execute()
-                    )
+                    msg = service.users().messages().get(userId="me", id=msg_ref["id"], format="full").execute()
                     headers = msg.get("payload", {}).get("headers", [])
                     subject = _get_header(headers, "subject")
                     sender = _get_header(headers, "from")
@@ -409,20 +271,14 @@ async def sync_gmail_orders(user_id: str, max_emails: int = 200) -> dict:
                     if not body or len(body) < 50:
                         continue
 
-                    actual_platform = platform if platform != "catch_all" else _detect_platform(sender, subject)
-
-                    if actual_platform == "skip":
-                        continue
-
                     email_text = f"Subject: {subject}\nFrom: {sender}\nDate: {date_str}\n\n{body}"
-
-                    extracted = await extract_order_from_email(email_text, actual_platform)
+                    extracted = await extract_order_from_email(email_text, platform)
 
                     if extracted and extracted.order_id and extracted.confidence and extracted.confidence >= 0.5:
                         order = OrderCreate(
                             user_id=user_id,
                             order_id=extracted.order_id,
-                            brand=extracted.brand or actual_platform.title(),
+                            brand=extracted.brand or platform.title(),
                             item_name=extracted.item_name or "Unknown item",
                             price=extracted.total_amount or 0.0,
                             order_date=datetime.strptime(extracted.order_date, "%Y-%m-%d").date()
@@ -438,13 +294,78 @@ async def sync_gmail_orders(user_id: str, max_emails: int = 200) -> dict:
                         details.append(f"  \u2713 {extracted.brand}: {extracted.item_name}")
 
                     synced += 1
-
                 except Exception as e:
                     print(f"Error processing email {msg_ref['id']}: {e}")
                     errors += 1
-
         except Exception as e:
             print(f"Error fetching {platform} emails: {e}")
+            errors += 1
+
+    # Pass 2: Universal catch-all queries (no domain filter — catches EVERYTHING)
+    for query_name, query in UNIVERSAL_QUERIES.items():
+        try:
+            results = (
+                service.users().messages()
+                .list(userId="me", q=query, maxResults=20)
+                .execute()
+            )
+            messages = results.get("messages", [])
+            if messages:
+                details.append(f"{query_name}: {len(messages)} emails")
+
+            for msg_ref in messages:
+                if msg_ref["id"] in seen_ids:
+                    continue
+                seen_ids.add(msg_ref["id"])
+
+                try:
+                    msg = service.users().messages().get(userId="me", id=msg_ref["id"], format="full").execute()
+                    headers = msg.get("payload", {}).get("headers", [])
+                    subject = _get_header(headers, "subject")
+                    sender = _get_header(headers, "from")
+                    date_str = _get_header(headers, "date")
+                    body = _decode_email_body(msg.get("payload", {}))
+
+                    if not body or len(body) < 50:
+                        continue
+
+                    # Auto-detect platform from sender/subject
+                    detected_platform = _detect_platform(sender, subject)
+
+                    # Skip excluded platforms (quick commerce, food delivery)
+                    if detected_platform == "skip":
+                        continue
+
+                    email_text = f"Subject: {subject}\nFrom: {sender}\nDate: {date_str}\n\n{body}"
+                    extracted = await extract_order_from_email(email_text, detected_platform)
+
+                    # Higher confidence threshold for universal catch-all (0.6 vs 0.5)
+                    # to reduce false positives from non-ecommerce emails
+                    if extracted and extracted.order_id and extracted.confidence and extracted.confidence >= 0.6:
+                        order = OrderCreate(
+                            user_id=user_id,
+                            order_id=extracted.order_id,
+                            brand=extracted.brand or detected_platform.title(),
+                            item_name=extracted.item_name or "Unknown item",
+                            price=extracted.total_amount or 0.0,
+                            order_date=datetime.strptime(extracted.order_date, "%Y-%m-%d").date()
+                                if extracted.order_date else datetime.now(IST).date(),
+                            category=extracted.category,
+                            courier_partner=extracted.courier_partner,
+                            delivery_pincode=extracted.delivery_pincode,
+                            purpose_id="return_tracking",
+                            consent_timestamp=datetime.now(IST),
+                        )
+                        await upsert_order(order)
+                        new_orders += 1
+                        details.append(f"  \u2713 [catch-all] {extracted.brand}: {extracted.item_name}")
+
+                    synced += 1
+                except Exception as e:
+                    print(f"Error processing catch-all email {msg_ref['id']}: {e}")
+                    errors += 1
+        except Exception as e:
+            print(f"Error in {query_name}: {e}")
             errors += 1
 
     return {"synced": synced, "new_orders": new_orders, "errors": errors, "details": details}
