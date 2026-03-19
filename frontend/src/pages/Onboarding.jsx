@@ -1,15 +1,31 @@
 import { useState } from 'react'
+import { api } from '../lib/api'
 
 export default function Onboarding({ onConnect }) {
   const [agreed, setAgreed] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  // Generate a stable user ID for demo (real app uses Supabase Auth)
-  function handleConnect() {
+  async function handleConnect() {
     if (!agreed || loading) return
     setLoading(true)
     const uid = localStorage.getItem('rk_user_id') ||
       'user_' + Math.random().toString(36).slice(2, 10)
+
+    // Log DPDP consent events before redirecting to OAuth
+    try {
+      await Promise.all([
+        api.logConsent(uid, 'gmail_read_access', true,
+          'I consent to ReturnKart scanning my order confirmation emails for return tracking purposes, in compliance with DPDP Act 2023. My data will not be shared or sold.'),
+        api.logConsent(uid, 'return_tracking', true,
+          'User consented to automated return window tracking and deadline notifications.'),
+        api.logConsent(uid, 'data_storage', true,
+          'User consented to order data being stored in ReturnKart database for tracking purposes.'),
+      ])
+    } catch(e) {
+      console.error('Consent logging failed:', e)
+      // Don't block the flow — consent text is in the UI, logging is best-effort
+    }
+
     onConnect(uid)
   }
 

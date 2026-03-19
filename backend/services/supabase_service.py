@@ -99,23 +99,16 @@ async def delete_evidence(evidence_id, user_id) -> None:
 async def save_platform(user_id, platform_name, platform_slug, website_url, email_domains, email_sender_patterns, return_policy, communication_channels) -> dict:
     client = get_client()
     data = {
-        "user_id": user_id,
-        "platform_name": platform_name,
-        "platform_slug": platform_slug,
-        "website_url": website_url,
-        "email_domains": email_domains,
-        "email_sender_patterns": email_sender_patterns,
-        "return_policy": return_policy,
-        "communication_channels": communication_channels,
-        "ai_generated": True,
-        "updated_at": datetime.now(IST).isoformat(),
+        "user_id": user_id, "platform_name": platform_name, "platform_slug": platform_slug,
+        "website_url": website_url, "email_domains": email_domains, "email_sender_patterns": email_sender_patterns,
+        "return_policy": return_policy, "communication_channels": communication_channels,
+        "ai_generated": True, "updated_at": datetime.now(IST).isoformat(),
     }
     result = client.table("platforms").upsert(data, on_conflict="platform_slug,user_id").execute()
     return result.data[0] if result.data else {}
 
 async def get_platforms_for_user(user_id) -> list:
     client = get_client()
-    # Get user-specific + global platforms
     result = client.table("platforms").select("*").or_(f"user_id.eq.{user_id},is_global.eq.true").order("platform_name").execute()
     return result.data or []
 
@@ -127,6 +120,7 @@ async def delete_platform(platform_id, user_id) -> None:
 # ───── CONSENT (DPDP ACT 2023) ─────
 
 async def log_consent(user_id, purpose_id, consented, consent_text, ip_address=None, user_agent=None) -> dict:
+    """Write an immutable consent event to the audit log. Append-only — never update or delete."""
     client = get_client()
     data = {
         "user_id": user_id, "purpose_id": purpose_id, "consented": consented,
@@ -134,3 +128,9 @@ async def log_consent(user_id, purpose_id, consented, consent_text, ip_address=N
     }
     result = client.table("user_consents").insert(data).execute()
     return result.data[0] if result.data else {}
+
+async def get_consent_history(user_id) -> list:
+    """Get full consent audit trail for a user, newest first."""
+    client = get_client()
+    result = client.table("user_consents").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+    return result.data or []

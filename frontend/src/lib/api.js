@@ -53,4 +53,11 @@ export const api = {
     body: JSON.stringify({ user_id: userId, platform_name: platformName, website_url: websiteUrl }),
   }),
   deletePlatform: (platformId, userId) => request(`/api/platforms/${platformId}?user_id=${userId}`, { method: 'DELETE' }),
+
+  // DPDP Consent
+  logConsent: (userId, purposeId, consented, consentText) => request('/api/consent/log', {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId, purpose_id: purposeId, consented, consent_text: consentText }),
+  }),
+  getConsentHistory: (userId) => request(`/api/consent/history?user_id=${userId}`),
 }
