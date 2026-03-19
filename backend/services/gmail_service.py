@@ -2,9 +2,8 @@
 RETURNKART.IN — GMAIL SERVICE
 Fetch invoice/shipping emails from Gmail and extract order data using Gemini AI.
 
-Supports 40+ Indian ecommerce platforms with broad search queries.
-Excludes quick commerce (Blinkit, Zepto, Swiggy Instamart, Dunzo, BigBasket) —
-those orders deliver in minutes and don't need return tracking.
+Supports 80+ Indian ecommerce platforms with heavy focus on fashion brands.
+Excludes quick commerce (Blinkit, Zepto, Swiggy, Dunzo, BigBasket).
 """
 import base64
 from datetime import datetime, timezone, timedelta
@@ -31,11 +30,12 @@ _SUBJ = '(subject:"order" OR subject:"shipped" OR subject:"delivered" OR subject
 EXCLUDED_PLATFORMS = {"swiggy", "zomato", "blinkit", "zepto", "dunzo", "bigbasket", "grofers", "instamart"}
 
 # ==============================
-# PLATFORM QUERIES — 40+ Indian ecommerce brands
-# Quick commerce excluded: Blinkit, Zepto, Swiggy, Dunzo, BigBasket
+# PLATFORM QUERIES — 80+ brands, fashion-heavy
 # ==============================
 PLATFORM_QUERIES = {
-    # --- Horizontal Marketplaces ---
+    # ═══════════════════════════════════════
+    # HORIZONTAL MARKETPLACES
+    # ═══════════════════════════════════════
     "amazon":    f'(from:amazon.in OR from:amazon.com) {_SUBJ}',
     "flipkart":  f'(from:flipkart.com OR from:ekartlogistics.com) {_SUBJ}',
     "meesho":    f'(from:meesho.com) {_SUBJ}',
@@ -46,65 +46,164 @@ PLATFORM_QUERIES = {
     "paytmmall": f'(from:paytmmall.com OR from:paytm.com) {_SUBJ}',
     "indiamart": f'(from:indiamart.com) {_SUBJ}',
 
-    # --- Fashion & Lifestyle ---
-    "myntra":    f'(from:myntra.com) {_SUBJ}',
-    "ajio":      f'(from:ajio.com) {_SUBJ}',
-    "nykaa":     f'(from:nykaa.com OR from:nykaafashion.com OR from:nykaamann.com) {_SUBJ}',
-    "zara":      f'(from:zara.com) {_SUBJ}',
-    "hm":        f'(from:hm.com OR from:email.hm.com) {_SUBJ}',
-    "bewakoof":  f'(from:bewakoof.com) {_SUBJ}',
-    "souledstore": f'(from:thesouledstore.com) {_SUBJ}',
-    "limeroad":  f'(from:limeroad.com) {_SUBJ}',
-    "koovs":     f'(from:koovs.com) {_SUBJ}',
-    "urbanic":   f'(from:urbanic.com) {_SUBJ}',
-    "shein":     f'(from:shein.com OR from:shein.in) {_SUBJ}',
-    "trendsin":  f'(from:trends.in OR from:reliancetrends) {_SUBJ}',
-    "fabindia":  f'(from:fabindia.com) {_SUBJ}',
-    "westside":  f'(from:westside.com OR from:trentlimited) {_SUBJ}',
-    "mango":     f'(from:mango.com) {_SUBJ}',
-    "uniqlo":    f'(from:uniqlo.com) {_SUBJ}',
+    # ═══════════════════════════════════════
+    # FASHION — TIER 1 (Major Indian platforms)
+    # ═══════════════════════════════════════
+    "myntra":       f'(from:myntra.com) {_SUBJ}',
+    "ajio":         f'(from:ajio.com) {_SUBJ}',
+    "nykaa":        f'(from:nykaa.com OR from:nykaafashion.com OR from:nykaamann.com) {_SUBJ}',
+    "trendsin":     f'(from:trends.in OR from:reliancetrends.com) {_SUBJ}',
+    "westside":     f'(from:westside.com OR from:trentlimited.com) {_SUBJ}',
+    "fabindia":     f'(from:fabindia.com) {_SUBJ}',
+    "shoppersstop": f'(from:shoppersstop.com) {_SUBJ}',
+    "lifestylestores": f'(from:lifestylestores.com) {_SUBJ}',
+    "maxfashion":   f'(from:maxfashion.in OR from:maxfashion.com) {_SUBJ}',
+    "pantaloons":   f'(from:pantaloons.com) {_SUBJ}',
 
-    # --- Electronics & Tech ---
-    "croma":     f'(from:croma.com) {_SUBJ}',
-    "vijaysales":f'(from:vijaysales.com) {_SUBJ}',
-    "boat":      f'(from:boat-lifestyle.com OR from:boatlifestyle.com) {_SUBJ}',
-    "oneplus":   f'(from:oneplus.in OR from:oneplus.com) {_SUBJ}',
-    "samsung":   f'(from:samsung.com OR from:shop.samsung.com) {_SUBJ}',
-    "apple":     f'(from:apple.com) {_SUBJ}',
-    "mi":        f'(from:xiaomi.com OR from:mi.com OR from:store.mi.com) {_SUBJ}',
-    "noise":     f'(from:gonoise.com) {_SUBJ}',
-    "realme":    f'(from:realme.com OR from:buy.realme.com) {_SUBJ}',
+    # ═══════════════════════════════════════
+    # FASHION — TIER 1 (International brands in India)
+    # ═══════════════════════════════════════
+    "zara":         f'(from:zara.com) {_SUBJ}',
+    "hm":           f'(from:hm.com OR from:email.hm.com) {_SUBJ}',
+    "uniqlo":       f'(from:uniqlo.com) {_SUBJ}',
+    "mango":        f'(from:mango.com) {_SUBJ}',
+    "gap":          f'(from:gap.com OR from:gap.co.in) {_SUBJ}',
+    "forever21":    f'(from:forever21.in OR from:forever21.com) {_SUBJ}',
+    "tommyhilfiger":f'(from:tommy.com OR from:tommyhilfiger.com OR from:pvhcorp.com) {_SUBJ}',
+    "calvinklein":  f'(from:calvinklein.com OR from:pvhcorp.com) {_SUBJ}',
+    "levis":        f'(from:levi.in OR from:levi.com OR from:levis.com) {_SUBJ}',
+    "nike":         f'(from:nike.com) {_SUBJ}',
+    "adidas":       f'(from:adidas.co.in OR from:adidas.com) {_SUBJ}',
+    "puma":         f'(from:puma.com) {_SUBJ}',
+    "reebok":       f'(from:reebok.in OR from:reebok.com) {_SUBJ}',
+    "superdry":     f'(from:superdry.com) {_SUBJ}',
+    "marksandspencer": f'(from:marksandspencer.in OR from:marksandspencer.com) {_SUBJ}',
+    "charlesandkeith": f'(from:charleskeith.com) {_SUBJ}',
+    "aldo":         f'(from:aldoshoes.in OR from:aldoshoes.com) {_SUBJ}',
+    "stevemadden":  f'(from:stevemadden.in) {_SUBJ}',
+    "skechers":     f'(from:skechers.in OR from:skechers.com) {_SUBJ}',
+    "crocs":        f'(from:crocs.in OR from:crocs.com) {_SUBJ}',
+    "clarks":       f'(from:clarks.in OR from:clarks.com) {_SUBJ}',
+    "asics":        f'(from:asics.com) {_SUBJ}',
+    "newbalance":   f'(from:newbalance.in OR from:newbalance.com) {_SUBJ}',
+    "underarmour":  f'(from:underarmour.com OR from:underarmour.in) {_SUBJ}',
+    "guess":        f'(from:guess.in OR from:guess.com) {_SUBJ}',
+    "armaniexchange": f'(from:armaniexchange.com) {_SUBJ}',
+    "coach":        f'(from:coach.com) {_SUBJ}',
+    "michaelkors":  f'(from:michaelkors.com) {_SUBJ}',
+    "ralphlauren":  f'(from:ralphlauren.com) {_SUBJ}',
+    "hugoboss":     f'(from:hugoboss.com) {_SUBJ}',
+    "uspa":         f'(from:uspoloassn.in OR from:uspoloassn.com) {_SUBJ}',
+    "benetton":     f'(from:benetton.in OR from:benetton.com) {_SUBJ}',
 
-    # --- Beauty & Health ---
-    "purplle":   f'(from:purplle.com) {_SUBJ}',
-    "mamaearth": f'(from:mamaearth.in) {_SUBJ}',
-    "tataone":   f'(from:tata1mg.com OR from:1mg.com) {_SUBJ}',
-    "pharmeasy": f'(from:pharmeasy.in) {_SUBJ}',
-    "netmeds":   f'(from:netmeds.com) {_SUBJ}',
+    # ═══════════════════════════════════════
+    # FASHION — TIER 2 (Indian D2C / digital-first)
+    # ═══════════════════════════════════════
+    "bewakoof":     f'(from:bewakoof.com) {_SUBJ}',
+    "souledstore":  f'(from:thesouledstore.com) {_SUBJ}',
+    "urbanic":      f'(from:urbanic.com) {_SUBJ}',
+    "shein":        f'(from:shein.com OR from:shein.in) {_SUBJ}',
+    "limeroad":     f'(from:limeroad.com) {_SUBJ}',
+    "koovs":        f'(from:koovs.com) {_SUBJ}',
+    "snitch":       f'(from:snitch.co.in) {_SUBJ}',
+    "bonkers":      f'(from:bonkerscorner.com) {_SUBJ}',
+    "rare_rabbit":  f'(from:thehouseofrare.com OR from:rarerabbit.in) {_SUBJ}',
+    "libas":        f'(from:libas.in) {_SUBJ}',
+    "w_aurelia":    f'(from:wforwoman.com OR from:aurelia.in) {_SUBJ}',
+    "biba":         f'(from:biba.in) {_SUBJ}',
+    "global_desi":  f'(from:globaldesi.in) {_SUBJ}',
+    "and_india":    f'(from:andindia.com) {_SUBJ}',
+    "fablestreet":  f'(from:fablestreet.com) {_SUBJ}',
+    "clovia":       f'(from:clovia.com) {_SUBJ}',
+    "zivame":       f'(from:zivame.com) {_SUBJ}',
+    "amydus":       f'(from:amydus.com) {_SUBJ}',
+    "sassafras":    f'(from:sassafras.in) {_SUBJ}',
+    "virgio":       f'(from:virgio.com) {_SUBJ}',
+    "hm_india":     f'(from:stories.com) {_SUBJ}',
+    "allen_solly":  f'(from:allensolly.com) {_SUBJ}',
+    "van_heusen":   f'(from:vanheusen.com OR from:vanheusenindia.com) {_SUBJ}',
+    "peter_england": f'(from:peterengland.com) {_SUBJ}',
+    "raymond":      f'(from:raymond.in OR from:raymondnext.com) {_SUBJ}',
+    "mufti":        f'(from:muftijeans.in) {_SUBJ}',
+    "jack_jones":   f'(from:jackjones.in) {_SUBJ}',
+    "only_vero":    f'(from:only.in OR from:veromoda.in) {_SUBJ}',
+    "woodland":     f'(from:woodland.in OR from:woodlandworldwide.com) {_SUBJ}',
+    "bata":         f'(from:bata.in OR from:bata.com) {_SUBJ}',
+    "metro_shoes":  f'(from:metroshoes.net) {_SUBJ}',
+    "mochi":        f'(from:mochishoes.com) {_SUBJ}',
 
-    # --- Home & Furniture ---
-    "pepperfry": f'(from:pepperfry.com) {_SUBJ}',
-    "urbanladder":f'(from:urbanladder.com) {_SUBJ}',
-    "wakefit":   f'(from:wakefit.co) {_SUBJ}',
-    "ikea":      f'(from:ikea.in OR from:ikea.com) {_SUBJ}',
-    "hometown":  f'(from:hometown.in) {_SUBJ}',
-    "godrej":    f'(from:godrejinterio.com) {_SUBJ}',
+    # ═══════════════════════════════════════
+    # FASHION — Luxury / Premium
+    # ═══════════════════════════════════════
+    "tata_cliq_luxury": f'(from:luxury.tatacliq.com OR from:tatacliq.luxury) {_SUBJ}',
+    "aza":          f'(from:azafashions.com) {_SUBJ}',
+    "pernia":       f'(from:perniaspopupshop.com) {_SUBJ}',
+    "elitify":      f'(from:elitify.in) {_SUBJ}',
+    "darveys":      f'(from:darveys.com) {_SUBJ}',
 
-    # --- Eyewear & Jewellery ---
-    "lenskart":  f'(from:lenskart.com) {_SUBJ}',
-    "caratlane": f'(from:caratlane.com) {_SUBJ}',
-    "tanishq":   f'(from:tanishq.co.in OR from:titan.co.in) {_SUBJ}',
-    "bluestone": f'(from:bluestone.com) {_SUBJ}',
+    # ═══════════════════════════════════════
+    # ELECTRONICS & TECH
+    # ═══════════════════════════════════════
+    "croma":        f'(from:croma.com) {_SUBJ}',
+    "vijaysales":   f'(from:vijaysales.com) {_SUBJ}',
+    "boat":         f'(from:boat-lifestyle.com OR from:boatlifestyle.com) {_SUBJ}',
+    "oneplus":      f'(from:oneplus.in OR from:oneplus.com) {_SUBJ}',
+    "samsung":      f'(from:samsung.com OR from:shop.samsung.com) {_SUBJ}',
+    "apple":        f'(from:apple.com) {_SUBJ}',
+    "mi":           f'(from:xiaomi.com OR from:mi.com OR from:store.mi.com) {_SUBJ}',
+    "noise":        f'(from:gonoise.com) {_SUBJ}',
+    "realme":       f'(from:realme.com OR from:buy.realme.com) {_SUBJ}',
 
-    # --- Sports & Outdoor ---
-    "decathlon": f'(from:decathlon.in OR from:decathlon.com) {_SUBJ}',
+    # ═══════════════════════════════════════
+    # BEAUTY & HEALTH
+    # ═══════════════════════════════════════
+    "purplle":      f'(from:purplle.com) {_SUBJ}',
+    "mamaearth":    f'(from:mamaearth.in) {_SUBJ}',
+    "tataone":      f'(from:tata1mg.com OR from:1mg.com) {_SUBJ}',
+    "pharmeasy":    f'(from:pharmeasy.in) {_SUBJ}',
+    "netmeds":      f'(from:netmeds.com) {_SUBJ}',
 
-    # --- Kids & Baby ---
-    "firstcry":  f'(from:firstcry.com) {_SUBJ}',
-    "hopscotch": f'(from:hopscotch.in) {_SUBJ}',
+    # ═══════════════════════════════════════
+    # HOME & FURNITURE
+    # ═══════════════════════════════════════
+    "pepperfry":    f'(from:pepperfry.com) {_SUBJ}',
+    "urbanladder":  f'(from:urbanladder.com) {_SUBJ}',
+    "wakefit":      f'(from:wakefit.co) {_SUBJ}',
+    "ikea":         f'(from:ikea.in OR from:ikea.com) {_SUBJ}',
+    "hometown":     f'(from:hometown.in) {_SUBJ}',
+    "godrej":       f'(from:godrejinterio.com) {_SUBJ}',
 
-    # --- Books & Stationery ---
-    "bookswagon": f'(from:bookswagon.com) {_SUBJ}',
+    # ═══════════════════════════════════════
+    # EYEWEAR & JEWELLERY
+    # ═══════════════════════════════════════
+    "lenskart":     f'(from:lenskart.com) {_SUBJ}',
+    "caratlane":    f'(from:caratlane.com) {_SUBJ}',
+    "tanishq":      f'(from:tanishq.co.in OR from:titan.co.in) {_SUBJ}',
+    "bluestone":    f'(from:bluestone.com) {_SUBJ}',
+
+    # ═══════════════════════════════════════
+    # SPORTS & OUTDOOR
+    # ═══════════════════════════════════════
+    "decathlon":    f'(from:decathlon.in OR from:decathlon.com) {_SUBJ}',
+
+    # ═══════════════════════════════════════
+    # KIDS & BABY
+    # ═══════════════════════════════════════
+    "firstcry":     f'(from:firstcry.com) {_SUBJ}',
+    "hopscotch":    f'(from:hopscotch.in) {_SUBJ}',
+
+    # ═══════════════════════════════════════
+    # WATCHES
+    # ═══════════════════════════════════════
+    "titan":        f'(from:titan.co.in OR from:titanworld.com) {_SUBJ}',
+    "fastrack":     f'(from:fastrack.in) {_SUBJ}',
+    "fossil":       f'(from:fossil.in OR from:fossil.com) {_SUBJ}',
+    "casio":        f'(from:casioindia.com) {_SUBJ}',
+
+    # ═══════════════════════════════════════
+    # BOOKS & STATIONERY
+    # ═══════════════════════════════════════
+    "bookswagon":   f'(from:bookswagon.com) {_SUBJ}',
 }
 
 # Catch-all: any ecommerce-sounding email from the last 60 days
@@ -137,7 +236,7 @@ async def _refresh_if_needed(user_id: str, token_row: dict) -> Credentials:
 
 
 def _decode_email_body(payload: dict) -> str:
-    """Extract text body from Gmail payload. Tries plain text first, then HTML. Recursive."""
+    """Extract text body from Gmail payload. Tries plain text, then HTML. Recursive."""
     body = ""
     if payload.get("body", {}).get("data"):
         body = base64.urlsafe_b64decode(payload["body"]["data"]).decode("utf-8", errors="ignore")
@@ -172,32 +271,68 @@ def _get_header(headers: list, name: str) -> str:
 
 def _detect_platform(sender: str, subject: str) -> str:
     """Auto-detect platform from sender/subject for catch-all matches.
-    Returns 'skip' for quick commerce platforms that should be ignored."""
+    Returns 'skip' for quick commerce / food delivery."""
     text = (sender + " " + subject).lower()
 
-    # Check for excluded quick commerce / food delivery first
     for excluded in EXCLUDED_PLATFORMS:
         if excluded in text:
             return "skip"
 
     hints = {
-        "amazon": ["amazon"], "flipkart": ["flipkart", "ekart"], "myntra": ["myntra"],
-        "meesho": ["meesho"], "ajio": ["ajio"], "nykaa": ["nykaa", "nykaafashion"],
-        "tatacliq": ["tatacliq", "tataneu", "tata cliq"], "jiomart": ["jiomart"],
-        "snapdeal": ["snapdeal"], "croma": ["croma"],
-        "lenskart": ["lenskart"], "boat": ["boat-lifestyle", "boatlifestyle"],
-        "pepperfry": ["pepperfry"], "urbanladder": ["urbanladder"], "bewakoof": ["bewakoof"],
-        "souledstore": ["souledstore", "thesouledstore"], "purplle": ["purplle"],
-        "mamaearth": ["mamaearth"], "decathlon": ["decathlon"], "ikea": ["ikea"],
-        "oneplus": ["oneplus"], "samsung": ["samsung"], "apple": ["apple"],
-        "xiaomi": ["xiaomi", "mi.com"], "zara": ["zara"], "hm": ["hm.com", "h&m"],
+        # Marketplaces
+        "amazon": ["amazon"], "flipkart": ["flipkart", "ekart"], "meesho": ["meesho"],
+        "snapdeal": ["snapdeal"], "jiomart": ["jiomart"], "paytmmall": ["paytmmall", "paytm"],
+        "tatacliq": ["tatacliq", "tataneu", "tata cliq"], "shopclues": ["shopclues"],
+        # Fashion — Tier 1 Indian
+        "myntra": ["myntra"], "ajio": ["ajio"], "nykaa": ["nykaa", "nykaafashion"],
+        "shoppersstop": ["shoppersstop"], "lifestylestores": ["lifestylestores"],
+        "maxfashion": ["maxfashion"], "pantaloons": ["pantaloons"],
+        "trendsin": ["trends.in", "reliancetrends"], "westside": ["westside"],
+        "fabindia": ["fabindia"],
+        # Fashion — International
+        "zara": ["zara"], "hm": ["hm.com", "h&m"], "uniqlo": ["uniqlo"],
+        "mango": ["mango.com"], "gap": ["gap.com", "gap.co.in"],
+        "forever21": ["forever21"], "tommyhilfiger": ["tommy.com", "tommyhilfiger"],
+        "calvinklein": ["calvinklein"], "levis": ["levi.in", "levi.com", "levis"],
+        "nike": ["nike.com"], "adidas": ["adidas"], "puma": ["puma.com"],
+        "reebok": ["reebok"], "superdry": ["superdry"],
+        "marksandspencer": ["marksandspencer"], "uspa": ["uspoloassn"],
+        "benetton": ["benetton"], "guess": ["guess.in", "guess.com"],
+        "hugoboss": ["hugoboss"], "ralphlauren": ["ralphlauren"],
+        "coach": ["coach.com"], "michaelkors": ["michaelkors"],
+        "charlesandkeith": ["charleskeith"], "aldo": ["aldoshoes"],
+        "stevemadden": ["stevemadden"], "skechers": ["skechers"],
+        "crocs": ["crocs"], "clarks": ["clarks"], "asics": ["asics"],
+        "newbalance": ["newbalance"], "underarmour": ["underarmour"],
+        # Fashion — Tier 2 D2C
+        "bewakoof": ["bewakoof"], "souledstore": ["souledstore", "thesouledstore"],
+        "urbanic": ["urbanic"], "shein": ["shein"], "limeroad": ["limeroad"],
+        "snitch": ["snitch.co"], "rare_rabbit": ["houseofrare", "rarerabbit"],
+        "libas": ["libas.in"], "biba": ["biba.in"], "clovia": ["clovia"],
+        "zivame": ["zivame"], "fablestreet": ["fablestreet"],
+        "allen_solly": ["allensolly"], "van_heusen": ["vanheusen"],
+        "peter_england": ["peterengland"], "raymond": ["raymond"],
+        "mufti": ["muftijeans"], "jack_jones": ["jackjones"],
+        "woodland": ["woodland"], "bata": ["bata"], "metro_shoes": ["metroshoes"],
+        # Luxury
+        "aza": ["azafashions"], "pernia": ["perniaspopupshop"],
+        # Electronics
+        "croma": ["croma"], "boat": ["boat-lifestyle", "boatlifestyle"],
+        "oneplus": ["oneplus"], "samsung": ["samsung"], "apple": ["apple.com"],
+        "xiaomi": ["xiaomi", "mi.com"], "noise": ["gonoise"], "realme": ["realme"],
+        "vijaysales": ["vijaysales"],
+        # Beauty
+        "purplle": ["purplle"], "mamaearth": ["mamaearth"],
         "pharmeasy": ["pharmeasy"], "tataone": ["1mg", "tata1mg"], "netmeds": ["netmeds"],
-        "caratlane": ["caratlane"], "tanishq": ["tanishq", "titan"], "bluestone": ["bluestone"],
-        "wakefit": ["wakefit"], "vijaysales": ["vijaysales"], "noise": ["gonoise"],
-        "shein": ["shein"], "limeroad": ["limeroad"], "realme": ["realme"],
-        "paytmmall": ["paytmmall", "paytm"], "shopclues": ["shopclues"],
-        "fabindia": ["fabindia"], "firstcry": ["firstcry"], "hopscotch": ["hopscotch"],
-        "uniqlo": ["uniqlo"], "mango": ["mango.com"], "godrej": ["godrejinterio"],
+        # Home
+        "pepperfry": ["pepperfry"], "urbanladder": ["urbanladder"],
+        "ikea": ["ikea"], "wakefit": ["wakefit"], "godrej": ["godrejinterio"],
+        # Jewellery & Eyewear
+        "lenskart": ["lenskart"], "caratlane": ["caratlane"],
+        "tanishq": ["tanishq"], "titan": ["titan.co"], "bluestone": ["bluestone"],
+        # Others
+        "decathlon": ["decathlon"], "firstcry": ["firstcry"], "hopscotch": ["hopscotch"],
+        "fossil": ["fossil"], "fastrack": ["fastrack"],
     }
     for platform, keywords in hints.items():
         for kw in keywords:
@@ -227,7 +362,6 @@ async def sync_gmail_orders(user_id: str, max_emails: int = 200) -> dict:
     details = []
     seen_ids = set()
 
-    # Combine all platform queries + catch-all
     all_queries = {**PLATFORM_QUERIES, "catch_all": CATCH_ALL_QUERY}
 
     for platform, query in all_queries.items():
@@ -264,7 +398,6 @@ async def sync_gmail_orders(user_id: str, max_emails: int = 200) -> dict:
 
                     actual_platform = platform if platform != "catch_all" else _detect_platform(sender, subject)
 
-                    # Skip quick commerce / food delivery platforms
                     if actual_platform == "skip":
                         continue
 
