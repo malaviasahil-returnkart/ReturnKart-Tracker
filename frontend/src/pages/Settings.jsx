@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { api } from '../lib/api'
 
 export default function Settings({ userId, onDisconnect, onBack }) {
@@ -6,42 +6,72 @@ export default function Settings({ userId, onDisconnect, onBack }) {
   const [deleting, setDeleting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
+  // Platform management
+  const [platforms, setPlatforms] = useState([])
+  const [loadingPlatforms, setLoadingPlatforms] = useState(true)
+  const [showAddPlatform, setShowAddPlatform] = useState(false)
+  const [newPlatformName, setNewPlatformName] = useState('')
+  const [newPlatformUrl, setNewPlatformUrl] = useState('')
+  const [addingPlatform, setAddingPlatform] = useState(false)
+  const [platformResult, setPlatformResult] = useState(null)
+
+  useEffect(() => { loadPlatforms() }, [])
+
+  async function loadPlatforms() {
+    setLoadingPlatforms(true)
+    try {
+      const data = await api.getPlatforms(userId)
+      setPlatforms(data.platforms || [])
+    } catch(e) { console.error(e) }
+    finally { setLoadingPlatforms(false) }
+  }
+
+  async function handleAddPlatform() {
+    if (!newPlatformName.trim()) return
+    setAddingPlatform(true)
+    setPlatformResult(null)
+    try {
+      const res = await api.addPlatform(userId, newPlatformName.trim(), newPlatformUrl.trim())
+      setPlatformResult(res.message)
+      setNewPlatformName('')
+      setNewPlatformUrl('')
+      setShowAddPlatform(false)
+      await loadPlatforms()
+      setTimeout(() => setPlatformResult(null), 5000)
+    } catch(e) {
+      console.error(e)
+      setPlatformResult('Failed to add platform. Try again.')
+      setTimeout(() => setPlatformResult(null), 3000)
+    } finally { setAddingPlatform(false) }
+  }
+
+  async function handleDeletePlatform(id) {
+    try {
+      await api.deletePlatform(id, userId)
+      setPlatforms(prev => prev.filter(p => p.id !== id))
+    } catch(e) { console.error(e) }
+  }
+
   async function handleRevokeGmail() {
     if (!confirm('This will disconnect your Gmail. ReturnKart will stop tracking new orders.')) return
     setRevoking(true)
-    try {
-      await api.authRevoke(userId)
-      onDisconnect()
-    } catch(e) {
-      console.error(e)
-    } finally {
-      setRevoking(false)
-    }
+    try { await api.authRevoke(userId); onDisconnect() }
+    catch(e) { console.error(e) }
+    finally { setRevoking(false) }
   }
 
   async function handleDeleteAll() {
-    if (!confirmDelete) {
-      setConfirmDelete(true)
-      return
-    }
+    if (!confirmDelete) { setConfirmDelete(true); return }
     setDeleting(true)
-    try {
-      // DPDP right to erasure
-      onDisconnect()
-    } catch(e) {
-      console.error(e)
-    } finally {
-      setDeleting(false)
-    }
+    try { onDisconnect() }
+    catch(e) { console.error(e) }
+    finally { setDeleting(false) }
   }
 
   return (
     <div className="min-h-screen bg-vault-black flex flex-col">
-      {/* Header */}
       <header className="sticky top-0 z-10 bg-vault-black/95 backdrop-blur-sm border-b border-vault-border px-4 py-3 flex items-center gap-3">
-        <button onClick={onBack} className="text-vault-muted text-sm px-2 py-1.5 active:scale-95 transition-transform">
-          ← Back
-        </button>
+        <button onClick={onBack} className="text-vault-muted text-sm px-2 py-1.5 active:scale-95 transition-transform">← Back</button>
         <h1 className="text-vault-text font-bold text-lg">Settings</h1>
       </header>
 
@@ -63,14 +93,100 @@ export default function Settings({ userId, onDisconnect, onBack }) {
           </div>
         </section>
 
+        {/* Tracked Platforms */}
+        <section className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <p className="text-vault-muted text-xs uppercase tracking-wider font-semibold">Tracked Platforms</p>
+            <button onClick={() => setShowAddPlatform(!showAddPlatform)}
+              className="text-vault-gold text-xs font-medium active:scale-95 transition-transform">
+              {showAddPlatform ? 'Cancel' : '+ Add Platform'}
+            </button>
+          </div>
+
+          {platformResult && (
+            <div className="bg-vault-card card-border rounded-xl px-3 py-2 text-center text-xs text-vault-safe animate-fade-in">{platformResult}</div>
+          )}
+
+          {/* Add Platform Form */}
+          {showAddPlatform && (
+            <div className="bg-vault-card card-border rounded-2xl px-4 py-4 flex flex-col gap-3 animate-fade-in">
+              <p className="text-vault-text text-sm font-medium">🤖 AI Platform Setup</p>
+              <p className="text-vault-muted text-xs">Enter the platform name and optional website. Our AI will auto-detect email domains, return policies, and communication channels.</p>
+              <input
+                type="text"
+                value={newPlatformName}
+                onChange={e => setNewPlatformName(e.target.value)}
+                placeholder="Platform name (e.g. Nykaa, Tata CLiQ)"
+                className="w-full bg-vault-black card-border rounded-xl px-3 py-2.5 text-sm text-vault-text placeholder-vault-muted outline-none focus:border-vault-gold transition-colors"
+              />
+              <input
+                type="text"
+                value={newPlatformUrl}
+                onChange={e => setNewPlatformUrl(e.target.value)}
+                placeholder="Website URL (optional, e.g. nykaa.com)"
+                className="w-full bg-vault-black card-border rounded-xl px-3 py-2.5 text-sm text-vault-text placeholder-vault-muted outline-none focus:border-vault-gold transition-colors"
+              />
+              <button
+                onClick={handleAddPlatform}
+                disabled={addingPlatform || !newPlatformName.trim()}
+                className="w-full bg-vault-gold text-vault-black py-3 rounded-xl font-semibold text-sm active:scale-95 transition-transform disabled:opacity-50"
+              >
+                {addingPlatform ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="w-4 h-4 border-2 border-vault-black border-t-transparent rounded-full animate-spin" />
+                    AI is researching...
+                  </span>
+                ) : '🤖 Add with AI'}
+              </button>
+            </div>
+          )}
+
+          {/* Platform List */}
+          {loadingPlatforms ? (
+            <div className="flex justify-center py-4">
+              <div className="w-5 h-5 border-2 border-vault-gold border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : platforms.length === 0 ? (
+            <div className="bg-vault-card card-border rounded-2xl px-4 py-4 text-center">
+              <p className="text-vault-muted text-xs">Default platforms (Amazon, Flipkart, Myntra, Meesho, Ajio) are tracked automatically via Gmail. Add more platforms above.</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {platforms.map(p => (
+                <div key={p.id} className="bg-vault-card card-border rounded-2xl px-4 py-3 flex items-center justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-vault-text text-sm font-medium">{p.platform_name}</p>
+                      {p.ai_generated && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-blue-900/30 text-blue-400">🤖 AI</span>}
+                      {p.is_global && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-vault-border text-vault-muted">Global</span>}
+                    </div>
+                    <p className="text-vault-muted text-[10px] mt-0.5 truncate">
+                      {p.email_domains?.length > 0 ? p.email_domains.join(', ') : 'No email domains'}
+                      {p.return_policy?.general ? ` · ${p.return_policy.general.window_days}d return` : ''}
+                    </p>
+                    {p.communication_channels && (
+                      <div className="flex gap-1 mt-1 flex-wrap">
+                        {Object.keys(p.communication_channels).map(ch => (
+                          <span key={ch} className="text-[8px] px-1 py-0.5 rounded bg-vault-border text-vault-muted">{ch.replace('_', ' ')}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {!p.is_global && (
+                    <button onClick={() => handleDeletePlatform(p.id)}
+                      className="text-red-400 text-xs px-2 py-1 active:scale-95 transition-transform flex-shrink-0 ml-2">×</button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
         {/* Data Controls */}
         <section className="flex flex-col gap-3">
           <p className="text-vault-muted text-xs uppercase tracking-wider font-semibold">Data Controls</p>
-          <button
-            onClick={handleRevokeGmail}
-            disabled={revoking}
-            className="w-full bg-vault-card card-border rounded-2xl px-4 py-4 text-left active:scale-[0.98] transition-transform"
-          >
+          <button onClick={handleRevokeGmail} disabled={revoking}
+            className="w-full bg-vault-card card-border rounded-2xl px-4 py-4 text-left active:scale-[0.98] transition-transform">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-vault-text font-medium text-sm">Disconnect Gmail</p>
@@ -79,22 +195,14 @@ export default function Settings({ userId, onDisconnect, onBack }) {
               <span className="text-vault-muted text-lg">📧</span>
             </div>
           </button>
-
-          <button
-            onClick={handleDeleteAll}
-            disabled={deleting}
+          <button onClick={handleDeleteAll} disabled={deleting}
             className={`w-full bg-vault-card rounded-2xl px-4 py-4 text-left active:scale-[0.98] transition-transform ${
               confirmDelete ? 'border-2 border-red-500' : 'border border-red-900/50'
-            }`}
-          >
+            }`}>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-red-400 font-medium text-sm">
-                  {confirmDelete ? 'Tap again to confirm deletion' : 'Delete All My Data'}
-                </p>
-                <p className="text-vault-muted text-xs mt-0.5">
-                  {confirmDelete ? 'This action cannot be undone.' : 'Permanently erases everything. Cannot be undone.'}
-                </p>
+                <p className="text-red-400 font-medium text-sm">{confirmDelete ? 'Tap again to confirm deletion' : 'Delete All My Data'}</p>
+                <p className="text-vault-muted text-xs mt-0.5">{confirmDelete ? 'This action cannot be undone.' : 'Permanently erases everything.'}</p>
               </div>
               <span className="text-lg">{confirmDelete ? '⚠️' : '🗑️'}</span>
             </div>

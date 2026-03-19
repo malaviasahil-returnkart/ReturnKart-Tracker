@@ -42,15 +42,15 @@ export const api = {
   getEvidence: (orderId, userId) => request(`/api/evidence/${orderId}?user_id=${userId}`),
   uploadEvidence: (orderId, userId, fileData, fileType, fileName) => request('/api/evidence/upload', {
     method: 'POST',
-    body: JSON.stringify({
-      user_id: userId,
-      order_id: orderId,
-      file_data: fileData,
-      file_type: fileType,
-      file_name: fileName,
-    }),
+    body: JSON.stringify({ user_id: userId, order_id: orderId, file_data: fileData, file_type: fileType, file_name: fileName }),
   }),
-  deleteEvidence: (evidenceId, userId) => request(`/api/evidence/${evidenceId}?user_id=${userId}`, {
-    method: 'DELETE',
+  deleteEvidence: (evidenceId, userId) => request(`/api/evidence/${evidenceId}?user_id=${userId}`, { method: 'DELETE' }),
+
+  // Platforms
+  getPlatforms: (userId) => request(`/api/platforms?user_id=${userId}`),
+  addPlatform:  (userId, platformName, websiteUrl) => request('/api/platforms/add', {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId, platform_name: platformName, website_url: websiteUrl }),
   }),
+  deletePlatform: (platformId, userId) => request(`/api/platforms/${platformId}?user_id=${userId}`, { method: 'DELETE' }),
 }
