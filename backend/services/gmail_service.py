@@ -2,8 +2,9 @@
 RETURNKART.IN — GMAIL SERVICE
 Fetch invoice/shipping emails from Gmail and extract order data using Gemini AI.
 
-Supports 30+ Indian ecommerce platforms with broad search queries.
-Includes catch-all query for unknown platforms.
+Supports 40+ Indian ecommerce platforms with broad search queries.
+Excludes quick commerce (Blinkit, Zepto, Swiggy Instamart, Dunzo, BigBasket) —
+those orders deliver in minutes and don't need return tracking.
 """
 import base64
 from datetime import datetime, timezone, timedelta
@@ -26,8 +27,12 @@ IST = timezone(timedelta(hours=5, minutes=30))
 # Common subject keywords for ecommerce emails
 _SUBJ = '(subject:"order" OR subject:"shipped" OR subject:"delivered" OR subject:"confirmed" OR subject:"placed" OR subject:"dispatched" OR subject:"out for delivery" OR subject:"arriving" OR subject:"refund" OR subject:"invoice")'
 
+# Platforms to EXCLUDE from catch-all detection (quick commerce / food delivery)
+EXCLUDED_PLATFORMS = {"swiggy", "zomato", "blinkit", "zepto", "dunzo", "bigbasket", "grofers", "instamart"}
+
 # ==============================
-# PLATFORM QUERIES — Top 30+ Indian ecommerce brands
+# PLATFORM QUERIES — 40+ Indian ecommerce brands
+# Quick commerce excluded: Blinkit, Zepto, Swiggy, Dunzo, BigBasket
 # ==============================
 PLATFORM_QUERIES = {
     # --- Horizontal Marketplaces ---
@@ -36,7 +41,7 @@ PLATFORM_QUERIES = {
     "meesho":    f'(from:meesho.com) {_SUBJ}',
     "snapdeal":  f'(from:snapdeal.com) {_SUBJ}',
     "shopclues": f'(from:shopclues.com) {_SUBJ}',
-    "jiomart":   f'(from:jiomart.com OR from:reliance OR from:reliancedigital.in) {_SUBJ}',
+    "jiomart":   f'(from:jiomart.com OR from:reliancedigital.in) {_SUBJ}',
     "tatacliq":  f'(from:tatacliq.com OR from:tataneu.com OR from:tatadigital.com) {_SUBJ}',
     "paytmmall": f'(from:paytmmall.com OR from:paytm.com) {_SUBJ}',
     "indiamart": f'(from:indiamart.com) {_SUBJ}',
@@ -51,9 +56,13 @@ PLATFORM_QUERIES = {
     "souledstore": f'(from:thesouledstore.com) {_SUBJ}',
     "limeroad":  f'(from:limeroad.com) {_SUBJ}',
     "koovs":     f'(from:koovs.com) {_SUBJ}',
-    "urbanicco": f'(from:urbanic.com) {_SUBJ}',
+    "urbanic":   f'(from:urbanic.com) {_SUBJ}',
     "shein":     f'(from:shein.com OR from:shein.in) {_SUBJ}',
     "trendsin":  f'(from:trends.in OR from:reliancetrends) {_SUBJ}',
+    "fabindia":  f'(from:fabindia.com) {_SUBJ}',
+    "westside":  f'(from:westside.com OR from:trentlimited) {_SUBJ}',
+    "mango":     f'(from:mango.com) {_SUBJ}',
+    "uniqlo":    f'(from:uniqlo.com) {_SUBJ}',
 
     # --- Electronics & Tech ---
     "croma":     f'(from:croma.com) {_SUBJ}',
@@ -63,6 +72,8 @@ PLATFORM_QUERIES = {
     "samsung":   f'(from:samsung.com OR from:shop.samsung.com) {_SUBJ}',
     "apple":     f'(from:apple.com) {_SUBJ}',
     "mi":        f'(from:xiaomi.com OR from:mi.com OR from:store.mi.com) {_SUBJ}',
+    "noise":     f'(from:gonoise.com) {_SUBJ}',
+    "realme":    f'(from:realme.com OR from:buy.realme.com) {_SUBJ}',
 
     # --- Beauty & Health ---
     "purplle":   f'(from:purplle.com) {_SUBJ}',
@@ -77,21 +88,23 @@ PLATFORM_QUERIES = {
     "wakefit":   f'(from:wakefit.co) {_SUBJ}',
     "ikea":      f'(from:ikea.in OR from:ikea.com) {_SUBJ}',
     "hometown":  f'(from:hometown.in) {_SUBJ}',
+    "godrej":    f'(from:godrejinterio.com) {_SUBJ}',
 
-    # --- Grocery & Quick Commerce ---
-    "bigbasket": f'(from:bigbasket.com) {_SUBJ}',
-    "blinkit":   f'(from:blinkit.com OR from:grofers.com) {_SUBJ}',
-    "swiggy":    f'(from:swiggy.in OR from:swiggy.com) {_SUBJ}',
-    "zepto":     f'(from:zeptonow.com) {_SUBJ}',
-    "dunzo":     f'(from:dunzo.com OR from:dunzo.in) {_SUBJ}',
-
-    # --- Eyewear & Accessories ---
+    # --- Eyewear & Jewellery ---
     "lenskart":  f'(from:lenskart.com) {_SUBJ}',
     "caratlane": f'(from:caratlane.com) {_SUBJ}',
     "tanishq":   f'(from:tanishq.co.in OR from:titan.co.in) {_SUBJ}',
+    "bluestone": f'(from:bluestone.com) {_SUBJ}',
 
     # --- Sports & Outdoor ---
     "decathlon": f'(from:decathlon.in OR from:decathlon.com) {_SUBJ}',
+
+    # --- Kids & Baby ---
+    "firstcry":  f'(from:firstcry.com) {_SUBJ}',
+    "hopscotch": f'(from:hopscotch.in) {_SUBJ}',
+
+    # --- Books & Stationery ---
+    "bookswagon": f'(from:bookswagon.com) {_SUBJ}',
 }
 
 # Catch-all: any ecommerce-sounding email from the last 60 days
@@ -158,26 +171,33 @@ def _get_header(headers: list, name: str) -> str:
 
 
 def _detect_platform(sender: str, subject: str) -> str:
-    """Auto-detect platform from sender/subject for catch-all matches."""
+    """Auto-detect platform from sender/subject for catch-all matches.
+    Returns 'skip' for quick commerce platforms that should be ignored."""
     text = (sender + " " + subject).lower()
+
+    # Check for excluded quick commerce / food delivery first
+    for excluded in EXCLUDED_PLATFORMS:
+        if excluded in text:
+            return "skip"
+
     hints = {
         "amazon": ["amazon"], "flipkart": ["flipkart", "ekart"], "myntra": ["myntra"],
         "meesho": ["meesho"], "ajio": ["ajio"], "nykaa": ["nykaa", "nykaafashion"],
-        "tatacliq": ["tatacliq", "tataneu", "tata cliq"], "jiomart": ["jiomart", "reliance"],
-        "snapdeal": ["snapdeal"], "croma": ["croma"], "swiggy": ["swiggy"],
-        "bigbasket": ["bigbasket"], "lenskart": ["lenskart"], "boat": ["boat-lifestyle", "boatlifestyle"],
+        "tatacliq": ["tatacliq", "tataneu", "tata cliq"], "jiomart": ["jiomart"],
+        "snapdeal": ["snapdeal"], "croma": ["croma"],
+        "lenskart": ["lenskart"], "boat": ["boat-lifestyle", "boatlifestyle"],
         "pepperfry": ["pepperfry"], "urbanladder": ["urbanladder"], "bewakoof": ["bewakoof"],
         "souledstore": ["souledstore", "thesouledstore"], "purplle": ["purplle"],
         "mamaearth": ["mamaearth"], "decathlon": ["decathlon"], "ikea": ["ikea"],
         "oneplus": ["oneplus"], "samsung": ["samsung"], "apple": ["apple"],
         "xiaomi": ["xiaomi", "mi.com"], "zara": ["zara"], "hm": ["hm.com", "h&m"],
-        "blinkit": ["blinkit", "grofers"], "zepto": ["zeptonow", "zepto"],
         "pharmeasy": ["pharmeasy"], "tataone": ["1mg", "tata1mg"], "netmeds": ["netmeds"],
-        "caratlane": ["caratlane"], "tanishq": ["tanishq", "titan"],
-        "wakefit": ["wakefit"], "vijaysales": ["vijaysales"],
-        "shein": ["shein"], "limeroad": ["limeroad"],
+        "caratlane": ["caratlane"], "tanishq": ["tanishq", "titan"], "bluestone": ["bluestone"],
+        "wakefit": ["wakefit"], "vijaysales": ["vijaysales"], "noise": ["gonoise"],
+        "shein": ["shein"], "limeroad": ["limeroad"], "realme": ["realme"],
         "paytmmall": ["paytmmall", "paytm"], "shopclues": ["shopclues"],
-        "dunzo": ["dunzo"],
+        "fabindia": ["fabindia"], "firstcry": ["firstcry"], "hopscotch": ["hopscotch"],
+        "uniqlo": ["uniqlo"], "mango": ["mango.com"], "godrej": ["godrejinterio"],
     }
     for platform, keywords in hints.items():
         for kw in keywords:
@@ -189,6 +209,7 @@ def _detect_platform(sender: str, subject: str) -> str:
 async def sync_gmail_orders(user_id: str, max_emails: int = 200) -> dict:
     """
     Main sync function. Searches all known platforms + catch-all.
+    Excludes quick commerce platforms.
     Returns: { synced, new_orders, errors, details }
     """
     from backend.services.gemini_service import extract_order_from_email
@@ -242,6 +263,11 @@ async def sync_gmail_orders(user_id: str, max_emails: int = 200) -> dict:
                         continue
 
                     actual_platform = platform if platform != "catch_all" else _detect_platform(sender, subject)
+
+                    # Skip quick commerce / food delivery platforms
+                    if actual_platform == "skip":
+                        continue
+
                     email_text = f"Subject: {subject}\nFrom: {sender}\nDate: {date_str}\n\n{body}"
 
                     extracted = await extract_order_from_email(email_text, actual_platform)
