@@ -1,6 +1,6 @@
 """
 RETURNKART.IN — GEMINI AI SERVICE
-Extract structured order data from invoice emails using Gemini 1.5 Flash + RAG.
+Extract structured order data from invoice emails using Gemini 2.0 Flash + RAG.
 
 Uses Gemini REST API directly (no Python SDK needed) to avoid
 grpcio/libstdc++ dependency issues on Replit deployments.
@@ -17,8 +17,8 @@ from typing import Optional
 from backend.config import GEMINI_API_KEY
 from backend.models.order import AIOrderContext
 
-# Gemini REST API endpoint
-GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+# Gemini REST API endpoint — using gemini-2.0-flash (1.5 was retired)
+GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
 
 # Load knowledge base once at module import
 _KB_PATH = Path(__file__).parent.parent / "data" / "knowledge_base.json"
@@ -93,7 +93,7 @@ async def extract_order_from_email(
 ) -> Optional[AIOrderContext]:
     """
     Main extraction function.
-    Sends email to Gemini 1.5 Flash via REST API.
+    Sends email to Gemini 2.0 Flash via REST API.
     Returns a validated AIOrderContext or None if extraction fails.
     """
     try:
