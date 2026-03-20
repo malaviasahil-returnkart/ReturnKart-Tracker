@@ -1,25 +1,26 @@
 """
 RETURNKART.IN — GEMINI AI SERVICE
-Task #14: Extract structured order data from invoice emails using Gemini 1.5 Flash + RAG.
+Extract structured order data from invoice emails using Gemini 1.5 Flash + RAG.
+
+Uses Gemini REST API directly (no Python SDK needed) to avoid
+grpcio/libstdc++ dependency issues on Replit deployments.
 
 Input:  raw email text + platform hint
 Output: AIOrderContext (order_id, brand, item_name, price, date, category)
 """
 import json
 import re
+import requests
 from pathlib import Path
 from typing import Optional
-
-import google.generativeai as genai
 
 from backend.config import GEMINI_API_KEY
 from backend.models.order import AIOrderContext
 
-# Configure Gemini
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel("gemini-1.5-flash")
+# Gemini REST API endpoint
+GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
 
-# Load knowledge base once at module import — never reload on each call
+# Load knowledge base once at module import
 _KB_PATH = Path(__file__).parent.parent / "data" / "knowledge_base.json"
 _knowledge_base: Optional[dict] = None
 
@@ -62,7 +63,7 @@ Return policy context for {platform_slug}:
 Extract this JSON structure:
 {{
   "order_id": "platform order ID string or null",
-  "brand": "Amazon India | Myntra | Flipkart | Meesho | Ajio or null",
+  "brand": "the brand/store name or null",
   "item_name": "product name string or null",
   "total_amount": number or null,
   "currency": "INR",
@@ -92,29 +93,59 @@ async def extract_order_from_email(
 ) -> Optional[AIOrderContext]:
     """
     Main extraction function.
-    Sends email to Gemini 1.5 Flash with RAG context.
+    Sends email to Gemini 1.5 Flash via REST API.
     Returns a validated AIOrderContext or None if extraction fails.
     """
     try:
         policy_snippet = _get_platform_policy(platform_slug)
         prompt = _build_prompt(email_text, platform_slug, policy_snippet)
 
-        response = model.generate_content(
-            prompt,
-            generation_config=genai.GenerationConfig(
-                temperature=0.1,  # Low temp = more deterministic extraction
-                max_output_tokens=512,
-            ),
+        # Call Gemini REST API directly (no SDK needed)
+        payload = {
+            "contents": [
+                {
+                    "parts": [
+                        {"text": prompt}
+                    ]
+                }
+            ],
+            "generationConfig": {
+                "temperature": 0.1,
+                "maxOutputTokens": 512,
+            }
+        }
+
+        response = requests.post(
+            GEMINI_URL,
+            json=payload,
+            headers={"Content-Type": "application/json"},
+            timeout=30,
         )
 
-        raw = response.text.strip()
+        if response.status_code != 200:
+            print(f"Gemini API error {response.status_code}: {response.text[:300]}")
+            return None
+
+        data = response.json()
+
+        # Extract text from Gemini response
+        candidates = data.get("candidates", [])
+        if not candidates:
+            print("Gemini returned no candidates")
+            return None
+
+        raw = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
+
+        if not raw:
+            print("Gemini returned empty text")
+            return None
 
         # Strip any accidental markdown fences
         raw = re.sub(r"^```(?:json)?\s*", "", raw)
         raw = re.sub(r"\s*```$", "", raw)
 
-        data = json.loads(raw)
-        return AIOrderContext(**data)
+        parsed = json.loads(raw)
+        return AIOrderContext(**parsed)
 
     except json.JSONDecodeError as e:
         print(f"Gemini JSON parse error: {e} | raw: {raw[:200]}")
