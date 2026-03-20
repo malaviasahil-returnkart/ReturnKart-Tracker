@@ -1,6 +1,6 @@
 """
 RETURNKART.IN — ORDERS API ROUTES
-Includes test-parse with direct Gemini 2.5 Flash API debugging.
+Includes test-parse and debug-sync endpoints.
 """
 from fastapi import APIRouter, HTTPException, Request, BackgroundTasks
 from typing import Optional
@@ -57,6 +57,111 @@ async def trigger_sync(request: Request, background_tasks: BackgroundTasks):
         raise HTTPException(status_code=400, detail="user_id is required")
     background_tasks.add_task(sync_gmail_orders, user_id)
     return {"status": "sync_started", "message": "Gmail sync running in background"}
+
+
+@router.post("/debug-sync")
+async def debug_sync(request: Request):
+    """
+    POST /api/orders/debug-sync
+    Runs Gmail sync SYNCHRONOUSLY and returns full results + errors.
+    Use this to debug why Gmail sync fails silently.
+    """
+    body = await request.json()
+    user_id = body.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id is required")
+
+    debug = {}
+
+    # Step 1: Check Gmail token
+    from backend.services.supabase_service import get_gmail_token
+    from backend.config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GEMINI_API_KEY
+    
+    debug["google_client_id_set"] = bool(GOOGLE_CLIENT_ID and len(GOOGLE_CLIENT_ID) > 10)
+    debug["google_client_id_prefix"] = GOOGLE_CLIENT_ID[:20] + "..." if GOOGLE_CLIENT_ID else "EMPTY"
+    debug["google_client_secret_set"] = bool(GOOGLE_CLIENT_SECRET and len(GOOGLE_CLIENT_SECRET) > 5)
+    debug["gemini_key_set"] = bool(GEMINI_API_KEY and len(GEMINI_API_KEY) > 5)
+
+    token_row = await get_gmail_token(user_id)
+    if not token_row:
+        debug["gmail_token"] = "NOT FOUND"
+        return {"success": False, "message": "Gmail not connected — no token found for this user", "debug": debug}
+
+    debug["gmail_token"] = "FOUND"
+    debug["has_access_token"] = bool(token_row.get("access_token"))
+    debug["has_refresh_token"] = bool(token_row.get("refresh_token"))
+    debug["token_scope"] = token_row.get("scope", "")
+    debug["token_expiry"] = str(token_row.get("token_expiry", ""))
+
+    # Step 2: Try to build credentials and access Gmail
+    try:
+        from google.oauth2.credentials import Credentials
+        from google.auth.transport.requests import Request as GoogleRequest
+        from googleapiclient.discovery import build
+
+        creds = Credentials(
+            token=token_row["access_token"],
+            refresh_token=token_row.get("refresh_token"),
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=GOOGLE_CLIENT_ID,
+            client_secret=GOOGLE_CLIENT_SECRET,
+            scopes=token_row.get("scope", "").split(),
+        )
+        debug["credentials_built"] = True
+        debug["token_expired"] = bool(creds.expired)
+
+        # Try to refresh if expired
+        if creds.expired and creds.refresh_token:
+            creds.refresh(GoogleRequest())
+            debug["token_refreshed"] = True
+        
+        # Step 3: Try to access Gmail API
+        service = build("gmail", "v1", credentials=creds)
+        debug["gmail_service_built"] = True
+
+        # Step 4: Try a simple Gmail query
+        results = service.users().messages().list(
+            userId="me",
+            q='subject:"order" newer_than:90d',
+            maxResults=5
+        ).execute()
+        
+        messages = results.get("messages", [])
+        debug["gmail_query_success"] = True
+        debug["emails_found"] = len(messages)
+
+        # Step 5: Show first few email subjects
+        email_subjects = []
+        for msg_ref in messages[:3]:
+            try:
+                msg = service.users().messages().get(userId="me", id=msg_ref["id"], format="metadata", metadataHeaders=["Subject", "From"]).execute()
+                headers = msg.get("payload", {}).get("headers", [])
+                subject = ""
+                sender = ""
+                for h in headers:
+                    if h["name"].lower() == "subject":
+                        subject = h["value"]
+                    if h["name"].lower() == "from":
+                        sender = h["value"]
+                email_subjects.append({"subject": subject[:100], "from": sender[:80]})
+            except Exception as e:
+                email_subjects.append({"error": str(e)})
+        
+        debug["sample_emails"] = email_subjects
+
+    except Exception as e:
+        debug["gmail_error"] = str(e)
+        debug["gmail_traceback"] = traceback.format_exc()[:500]
+        return {"success": False, "message": f"Gmail API failed: {e}", "debug": debug}
+
+    # Step 6: Now run actual sync
+    try:
+        result = await sync_gmail_orders(user_id)
+        return {"success": True, "sync_result": result, "debug": debug}
+    except Exception as e:
+        debug["sync_error"] = str(e)
+        debug["sync_traceback"] = traceback.format_exc()[:500]
+        return {"success": False, "message": f"Sync crashed: {e}", "debug": debug}
 
 
 @router.post("/test-parse")
