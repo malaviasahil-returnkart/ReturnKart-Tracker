@@ -1,10 +1,10 @@
 """
 RETURNKART.IN — ORDERS API ROUTES
-Task #15: HTTP endpoints for order management.
-Includes test-parse endpoint for testing email parsing without Gmail.
+Includes test-parse endpoint with verbose error reporting.
 """
 from fastapi import APIRouter, HTTPException, Request, BackgroundTasks
 from typing import Optional
+import traceback
 
 from backend.services.supabase_service import (
     get_orders_by_user,
@@ -62,14 +62,8 @@ async def test_parse_email(request: Request):
     """
     POST /api/orders/test-parse
     Test the Gemini email parser WITHOUT Gmail.
-    Send raw email text and see what Gemini extracts.
-
-    Body: { "email_text": "Subject: ...\nFrom: ...\n\n<email body>", "platform": "amazon" }
-    
-    Returns: raw Gemini extraction result (order_id, brand, item_name, price, etc.)
+    Returns verbose errors so you can debug.
     """
-    from backend.services.gemini_service import extract_order_from_email
-
     body = await request.json()
     email_text = body.get("email_text", "")
     platform = body.get("platform", "unknown")
@@ -77,7 +71,18 @@ async def test_parse_email(request: Request):
     if not email_text:
         raise HTTPException(status_code=400, detail="email_text is required")
 
-    extracted = await extract_order_from_email(email_text, platform)
+    try:
+        from backend.services.gemini_service import extract_order_from_email
+        extracted = await extract_order_from_email(email_text, platform)
+    except Exception as e:
+        # Return the full traceback so we can debug
+        return {
+            "success": False,
+            "extracted": None,
+            "error": str(e),
+            "traceback": traceback.format_exc(),
+            "message": f"Gemini extraction crashed: {e}",
+        }
 
     if extracted:
         return {
