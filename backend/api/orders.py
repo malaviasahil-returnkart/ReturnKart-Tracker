@@ -1,6 +1,6 @@
 """
 RETURNKART.IN — ORDERS API ROUTES
-Includes test-parse with direct Gemini API debugging.
+Includes test-parse with direct Gemini 2.5 Flash API debugging.
 """
 from fastapi import APIRouter, HTTPException, Request, BackgroundTasks
 from typing import Optional
@@ -64,7 +64,7 @@ async def test_parse_email(request: Request):
     """
     POST /api/orders/test-parse
     Test the Gemini email parser with FULL debug output.
-    Calls Gemini REST API directly and shows every step.
+    Uses gemini-2.5-flash (confirmed working March 2026).
     """
     import requests as http_requests
     from backend.config import GEMINI_API_KEY
@@ -77,20 +77,12 @@ async def test_parse_email(request: Request):
         raise HTTPException(status_code=400, detail="email_text is required")
 
     debug = {}
-
-    # Step 1: Check API key
     debug["gemini_key_set"] = bool(GEMINI_API_KEY and len(GEMINI_API_KEY) > 5)
     debug["gemini_key_prefix"] = GEMINI_API_KEY[:10] + "..." if GEMINI_API_KEY else "EMPTY"
 
     if not GEMINI_API_KEY:
-        return {
-            "success": False,
-            "extracted": None,
-            "message": "GEMINI_API_KEY is not set in deployment secrets!",
-            "debug": debug,
-        }
+        return {"success": False, "extracted": None, "message": "GEMINI_API_KEY not set!", "debug": debug}
 
-    # Step 2: Build prompt
     prompt = f"""You are an AI assistant for ReturnKart.in, an Indian e-commerce return tracker.
 Extract structured order information from the email below.
 Return ONLY valid JSON. No markdown, no explanation, no code fences.
@@ -122,8 +114,9 @@ JSON:"""
 
     debug["prompt_length"] = len(prompt)
 
-    # Step 3: Call Gemini REST API
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+    # GEMINI 2.5 FLASH — confirmed working March 2026
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
+    debug["model"] = "gemini-2.5-flash"
 
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
@@ -137,12 +130,7 @@ JSON:"""
 
         if response.status_code != 200:
             debug["gemini_error"] = response.text[:500]
-            return {
-                "success": False,
-                "extracted": None,
-                "message": f"Gemini API returned {response.status_code}",
-                "debug": debug,
-            }
+            return {"success": False, "extracted": None, "message": f"Gemini API returned {response.status_code}", "debug": debug}
 
         data = response.json()
         candidates = data.get("candidates", [])
@@ -150,33 +138,21 @@ JSON:"""
 
         if not candidates:
             debug["full_response"] = json.dumps(data)[:500]
-            return {
-                "success": False,
-                "extracted": None,
-                "message": "Gemini returned no candidates",
-                "debug": debug,
-            }
+            return {"success": False, "extracted": None, "message": "Gemini returned no candidates", "debug": debug}
 
         raw = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
         debug["raw_gemini_output"] = raw[:500]
 
-        # Strip markdown fences
         raw = re.sub(r"^```(?:json)?\s*", "", raw)
         raw = re.sub(r"\s*```$", "", raw)
 
         parsed = json.loads(raw)
         debug["parsed_ok"] = True
 
-        return {
-            "success": True,
-            "extracted": parsed,
-            "platform_hint": platform,
-            "debug": debug,
-        }
+        return {"success": True, "extracted": parsed, "platform_hint": platform, "debug": debug}
 
     except json.JSONDecodeError as e:
         debug["json_error"] = str(e)
-        debug["raw_text"] = raw[:300] if 'raw' in dir() else "N/A"
         return {"success": False, "extracted": None, "message": f"JSON parse failed: {e}", "debug": debug}
     except Exception as e:
         debug["exception"] = str(e)
