@@ -1,10 +1,12 @@
 """
 RETURNKART.IN — ORDERS API ROUTES
-Includes test-parse endpoint with verbose error reporting.
+Includes test-parse with direct Gemini API debugging.
 """
 from fastapi import APIRouter, HTTPException, Request, BackgroundTasks
 from typing import Optional
 import traceback
+import json
+import re
 
 from backend.services.supabase_service import (
     get_orders_by_user,
@@ -61,9 +63,12 @@ async def trigger_sync(request: Request, background_tasks: BackgroundTasks):
 async def test_parse_email(request: Request):
     """
     POST /api/orders/test-parse
-    Test the Gemini email parser WITHOUT Gmail.
-    Returns verbose errors so you can debug.
+    Test the Gemini email parser with FULL debug output.
+    Calls Gemini REST API directly and shows every step.
     """
+    import requests as http_requests
+    from backend.config import GEMINI_API_KEY
+
     body = await request.json()
     email_text = body.get("email_text", "")
     platform = body.get("platform", "unknown")
@@ -71,40 +76,109 @@ async def test_parse_email(request: Request):
     if not email_text:
         raise HTTPException(status_code=400, detail="email_text is required")
 
-    try:
-        from backend.services.gemini_service import extract_order_from_email
-        extracted = await extract_order_from_email(email_text, platform)
-    except Exception as e:
-        # Return the full traceback so we can debug
+    debug = {}
+
+    # Step 1: Check API key
+    debug["gemini_key_set"] = bool(GEMINI_API_KEY and len(GEMINI_API_KEY) > 5)
+    debug["gemini_key_prefix"] = GEMINI_API_KEY[:10] + "..." if GEMINI_API_KEY else "EMPTY"
+
+    if not GEMINI_API_KEY:
         return {
             "success": False,
             "extracted": None,
-            "error": str(e),
-            "traceback": traceback.format_exc(),
-            "message": f"Gemini extraction crashed: {e}",
+            "message": "GEMINI_API_KEY is not set in deployment secrets!",
+            "debug": debug,
         }
 
-    if extracted:
+    # Step 2: Build prompt
+    prompt = f"""You are an AI assistant for ReturnKart.in, an Indian e-commerce return tracker.
+Extract structured order information from the email below.
+Return ONLY valid JSON. No markdown, no explanation, no code fences.
+
+Extract this JSON:
+{{
+  "order_id": "platform order ID or null",
+  "brand": "brand name or null",
+  "item_name": "product name or null",
+  "total_amount": number or null,
+  "currency": "INR",
+  "order_date": "YYYY-MM-DD or null",
+  "category": "Fashion & Apparel | Electronics | Home & Kitchen | Default or null",
+  "courier_partner": "courier name or null",
+  "delivery_pincode": "6-digit pincode or null",
+  "confidence": 0.0 to 1.0
+}}
+
+Rules:
+- order_date in YYYY-MM-DD format
+- total_amount as number (no currency symbols)
+- null for missing fields
+- confidence: 1.0 = certain, 0.5 = guessing
+
+Email:
+{email_text}
+
+JSON:"""
+
+    debug["prompt_length"] = len(prompt)
+
+    # Step 3: Call Gemini REST API
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.1, "maxOutputTokens": 512}
+    }
+
+    try:
+        response = http_requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=30)
+        debug["gemini_status"] = response.status_code
+        debug["gemini_response_length"] = len(response.text)
+
+        if response.status_code != 200:
+            debug["gemini_error"] = response.text[:500]
+            return {
+                "success": False,
+                "extracted": None,
+                "message": f"Gemini API returned {response.status_code}",
+                "debug": debug,
+            }
+
+        data = response.json()
+        candidates = data.get("candidates", [])
+        debug["candidates_count"] = len(candidates)
+
+        if not candidates:
+            debug["full_response"] = json.dumps(data)[:500]
+            return {
+                "success": False,
+                "extracted": None,
+                "message": "Gemini returned no candidates",
+                "debug": debug,
+            }
+
+        raw = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
+        debug["raw_gemini_output"] = raw[:500]
+
+        # Strip markdown fences
+        raw = re.sub(r"^```(?:json)?\s*", "", raw)
+        raw = re.sub(r"\s*```$", "", raw)
+
+        parsed = json.loads(raw)
+        debug["parsed_ok"] = True
+
         return {
             "success": True,
-            "extracted": {
-                "order_id": extracted.order_id,
-                "brand": extracted.brand,
-                "item_name": extracted.item_name,
-                "total_amount": extracted.total_amount,
-                "currency": extracted.currency,
-                "order_date": extracted.order_date,
-                "category": extracted.category,
-                "courier_partner": extracted.courier_partner,
-                "delivery_pincode": extracted.delivery_pincode,
-                "confidence": extracted.confidence,
-            },
+            "extracted": parsed,
             "platform_hint": platform,
+            "debug": debug,
         }
-    else:
-        return {
-            "success": False,
-            "extracted": None,
-            "message": "Gemini could not extract order data from this email.",
-            "platform_hint": platform,
-        }
+
+    except json.JSONDecodeError as e:
+        debug["json_error"] = str(e)
+        debug["raw_text"] = raw[:300] if 'raw' in dir() else "N/A"
+        return {"success": False, "extracted": None, "message": f"JSON parse failed: {e}", "debug": debug}
+    except Exception as e:
+        debug["exception"] = str(e)
+        debug["traceback"] = traceback.format_exc()[:500]
+        return {"success": False, "extracted": None, "message": f"Error: {e}", "debug": debug}
