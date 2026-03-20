@@ -1,9 +1,11 @@
 """
 RETURNKART.IN — GEMINI AI SERVICE
-Extract structured order data from invoice emails using Gemini 2.5 Flash + RAG.
+Extract structured order data from invoice emails using Gemini 2.5 Flash.
 
-Uses Gemini REST API directly (no Python SDK needed).
-URL is built at CALL TIME (not import time) to avoid bytecode caching issues.
+Fixes for Gemini 2.5 Flash (thinking model):
+  - maxOutputTokens increased to 8192 (thinking uses many tokens internally)
+  - Reads LAST text part from response (thinking models return thinking + text)
+  - URL built at call time to avoid bytecode cache issues
 """
 import json
 import re
@@ -14,16 +16,13 @@ from typing import Optional
 from backend.config import GEMINI_API_KEY
 from backend.models.order import AIOrderContext
 
-# Model name — change this ONE place to upgrade
 GEMINI_MODEL = "gemini-2.5-flash"
 
-# Load knowledge base once at module import
 _KB_PATH = Path(__file__).parent.parent / "data" / "knowledge_base.json"
 _knowledge_base: Optional[dict] = None
 
 
 def _get_gemini_url() -> str:
-    """Build Gemini URL at call time — avoids Python bytecode cache issues."""
     return f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
 
 
@@ -41,44 +40,22 @@ def _get_platform_policy(platform_slug: str) -> str:
         if p["brand_slug"] == platform_slug:
             lines = [f"Platform: {p['brand']}"]
             for cat in p.get("categories", []):
-                lines.append(
-                    f"  - {cat['category']}: {cat['return_window_days']} days "
-                    f"({'replacement only' if cat['is_replacement_only'] else 'refund'})"
-                )
+                lines.append(f"  - {cat['category']}: {cat['return_window_days']} days ({'replacement only' if cat['is_replacement_only'] else 'refund'})")
             return "\n".join(lines)
     fb = kb.get("fallback_policy", {})
     return f"Fallback: {fb.get('return_window_days', 7)} day return window"
 
 
 def _build_prompt(email_text: str, platform_slug: str, policy_snippet: str) -> str:
-    return f"""You are an AI assistant for ReturnKart.in, an Indian e-commerce return tracker.
+    return f"""You are an AI for ReturnKart.in, an Indian e-commerce return tracker.
+Extract order info from this email. Return ONLY valid JSON, nothing else.
 
-Your job: extract structured order information from the email below.
-Return ONLY valid JSON. No markdown, no explanation, no code fences.
+Return policy for {platform_slug}: {policy_snippet}
 
-Return policy context for {platform_slug}:
-{policy_snippet}
+JSON format:
+{{"order_id": "string or null", "brand": "string or null", "item_name": "string or null", "total_amount": number or null, "currency": "INR", "order_date": "YYYY-MM-DD or null", "category": "Fashion & Apparel|Electronics|Home & Kitchen|Books|Default or null", "courier_partner": "string or null", "delivery_pincode": "string or null", "confidence": 0.0 to 1.0}}
 
-Extract this JSON structure:
-{{
-  "order_id": "platform order ID string or null",
-  "brand": "the brand/store name or null",
-  "item_name": "product name string or null",
-  "total_amount": number or null,
-  "currency": "INR",
-  "order_date": "YYYY-MM-DD or null",
-  "category": "Fashion & Apparel | Electronics | Home & Kitchen | Books | Default or null",
-  "courier_partner": "courier name or null",
-  "delivery_pincode": "6-digit pincode or null",
-  "confidence": 0.0 to 1.0
-}}
-
-Rules:
-- order_date MUST be in YYYY-MM-DD format
-- total_amount MUST be a number (no currency symbols)
-- If you cannot find a field, use null
-- confidence: 1.0 = very sure, 0.5 = guessing, 0.0 = not found
-- Only extract data explicitly present in the email — never invent data
+Rules: order_date=YYYY-MM-DD, total_amount=number only, null for missing, confidence 1.0=sure 0.5=guess.
 
 Email:
 {email_text}
@@ -86,31 +63,63 @@ Email:
 JSON:"""
 
 
+def _extract_json_from_response(data: dict) -> Optional[str]:
+    """Extract the JSON text from Gemini response.
+    Gemini 2.5 Flash is a thinking model — it returns multiple parts:
+      parts[0] = thinking/reasoning (may be empty or internal)
+      parts[-1] = actual text output
+    We search all parts for valid JSON."""
+    candidates = data.get("candidates", [])
+    if not candidates:
+        return None
+
+    parts = candidates[0].get("content", {}).get("parts", [])
+    if not parts:
+        return None
+
+    # Try each part, starting from the LAST (most likely to be the actual output)
+    for part in reversed(parts):
+        text = part.get("text", "").strip()
+        if not text:
+            continue
+        # Strip markdown fences
+        text = re.sub(r"^```(?:json)?\s*", "", text)
+        text = re.sub(r"\s*```$", "", text)
+        # Check if it looks like JSON
+        if text.startswith("{") and "}" in text:
+            return text
+
+    # Fallback: return whatever text we find
+    for part in parts:
+        text = part.get("text", "").strip()
+        if text:
+            text = re.sub(r"^```(?:json)?\s*", "", text)
+            text = re.sub(r"\s*```$", "", text)
+            return text
+
+    return None
+
+
 async def extract_order_from_email(
     email_text: str,
     platform_slug: str = "amazon",
 ) -> Optional[AIOrderContext]:
-    """
-    Main extraction function.
-    Sends email to Gemini 2.5 Flash via REST API.
-    URL is built at call time to avoid bytecode cache issues.
-    """
     try:
         policy_snippet = _get_platform_policy(platform_slug)
         prompt = _build_prompt(email_text, platform_slug, policy_snippet)
 
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": 0.1, "maxOutputTokens": 512}
+            "generationConfig": {
+                "temperature": 0.1,
+                "maxOutputTokens": 8192,
+            }
         }
 
-        # Build URL at call time — NOT at import time
         url = _get_gemini_url()
-        print(f"[Gemini] Calling {GEMINI_MODEL} for platform={platform_slug}")
 
         response = requests.post(
-            url,
-            json=payload,
+            url, json=payload,
             headers={"Content-Type": "application/json"},
             timeout=30,
         )
@@ -120,27 +129,19 @@ async def extract_order_from_email(
             return None
 
         data = response.json()
-        candidates = data.get("candidates", [])
-        if not candidates:
-            print("[Gemini] No candidates returned")
-            return None
+        raw = _extract_json_from_response(data)
 
-        raw = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
         if not raw:
-            print("[Gemini] Empty text returned")
+            print(f"[Gemini] No JSON found in response. Parts: {len(data.get('candidates', [{}])[0].get('content', {}).get('parts', []))}")
             return None
-
-        # Strip markdown fences
-        raw = re.sub(r"^```(?:json)?\s*", "", raw)
-        raw = re.sub(r"\s*```$", "", raw)
 
         parsed = json.loads(raw)
-        print(f"[Gemini] Extracted: {parsed.get('brand', '?')} - {parsed.get('item_name', '?')} (conf={parsed.get('confidence', 0)})")
+        print(f"[Gemini] OK: {parsed.get('brand', '?')} - {parsed.get('item_name', '?')} (conf={parsed.get('confidence', 0)})")
         return AIOrderContext(**parsed)
 
     except json.JSONDecodeError as e:
-        print(f"[Gemini] JSON parse error: {e} | raw: {raw[:200]}")
+        print(f"[Gemini] JSON parse error: {e}")
         return None
     except Exception as e:
-        print(f"[Gemini] Extraction error: {e}")
+        print(f"[Gemini] Error: {e}")
         return None
