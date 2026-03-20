@@ -17,6 +17,7 @@ from backend.api.orders import router as orders_router
 from backend.api.evidence import router as evidence_router
 from backend.api.platforms import router as platforms_router
 from backend.api.consent import router as consent_router
+from backend.api.test_parser import router as test_parser_router
 
 app = FastAPI(
     title="ReturnKart.in API",
@@ -41,6 +42,9 @@ app.include_router(orders_router,    prefix="/api/orders",    tags=["orders"])
 app.include_router(evidence_router,  prefix="/api/evidence",  tags=["evidence"])
 app.include_router(platforms_router, prefix="/api/platforms", tags=["platforms"])
 app.include_router(consent_router,   prefix="/api/consent",   tags=["consent"])
+
+# Test parser page — must be registered BEFORE the frontend catch-all
+app.include_router(test_parser_router, tags=["testing"])
 
 # Serve React frontend from /frontend/dist
 DIST = Path(__file__).parent.parent / "frontend" / "dist"
