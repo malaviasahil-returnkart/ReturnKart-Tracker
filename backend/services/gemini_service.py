@@ -2,11 +2,8 @@
 RETURNKART.IN — GEMINI AI SERVICE
 Extract structured order data from invoice emails using Gemini 2.5 Flash + RAG.
 
-Uses Gemini REST API directly (no Python SDK needed) to avoid
-grpcio/libstdc++ dependency issues on Replit deployments.
-
-Input:  raw email text + platform hint
-Output: AIOrderContext (order_id, brand, item_name, price, date, category)
+Uses Gemini REST API directly (no Python SDK needed).
+URL is built at CALL TIME (not import time) to avoid bytecode caching issues.
 """
 import json
 import re
@@ -17,16 +14,20 @@ from typing import Optional
 from backend.config import GEMINI_API_KEY
 from backend.models.order import AIOrderContext
 
-# Gemini REST API endpoint — gemini-2.5-flash (confirmed working March 2026)
-GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
+# Model name — change this ONE place to upgrade
+GEMINI_MODEL = "gemini-2.5-flash"
 
 # Load knowledge base once at module import
 _KB_PATH = Path(__file__).parent.parent / "data" / "knowledge_base.json"
 _knowledge_base: Optional[dict] = None
 
 
+def _get_gemini_url() -> str:
+    """Build Gemini URL at call time — avoids Python bytecode cache issues."""
+    return f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
+
+
 def _load_knowledge_base() -> dict:
-    """Load and cache the RAG knowledge base."""
     global _knowledge_base
     if _knowledge_base is None:
         with open(_KB_PATH, "r", encoding="utf-8") as f:
@@ -35,7 +36,6 @@ def _load_knowledge_base() -> dict:
 
 
 def _get_platform_policy(platform_slug: str) -> str:
-    """Extract the return policy for a specific platform as a text snippet for Gemini."""
     kb = _load_knowledge_base()
     for p in kb.get("platforms", []):
         if p["brand_slug"] == platform_slug:
@@ -51,7 +51,6 @@ def _get_platform_policy(platform_slug: str) -> str:
 
 
 def _build_prompt(email_text: str, platform_slug: str, policy_snippet: str) -> str:
-    """Build the Gemini prompt with RAG context."""
     return f"""You are an AI assistant for ReturnKart.in, an Indian e-commerce return tracker.
 
 Your job: extract structured order information from the email below.
@@ -94,62 +93,54 @@ async def extract_order_from_email(
     """
     Main extraction function.
     Sends email to Gemini 2.5 Flash via REST API.
-    Returns a validated AIOrderContext or None if extraction fails.
+    URL is built at call time to avoid bytecode cache issues.
     """
     try:
         policy_snippet = _get_platform_policy(platform_slug)
         prompt = _build_prompt(email_text, platform_slug, policy_snippet)
 
-        # Call Gemini REST API directly (no SDK needed)
         payload = {
-            "contents": [
-                {
-                    "parts": [
-                        {"text": prompt}
-                    ]
-                }
-            ],
-            "generationConfig": {
-                "temperature": 0.1,
-                "maxOutputTokens": 512,
-            }
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"temperature": 0.1, "maxOutputTokens": 512}
         }
 
+        # Build URL at call time — NOT at import time
+        url = _get_gemini_url()
+        print(f"[Gemini] Calling {GEMINI_MODEL} for platform={platform_slug}")
+
         response = requests.post(
-            GEMINI_URL,
+            url,
             json=payload,
             headers={"Content-Type": "application/json"},
             timeout=30,
         )
 
         if response.status_code != 200:
-            print(f"Gemini API error {response.status_code}: {response.text[:300]}")
+            print(f"[Gemini] API error {response.status_code}: {response.text[:300]}")
             return None
 
         data = response.json()
-
-        # Extract text from Gemini response
         candidates = data.get("candidates", [])
         if not candidates:
-            print("Gemini returned no candidates")
+            print("[Gemini] No candidates returned")
             return None
 
         raw = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
-
         if not raw:
-            print("Gemini returned empty text")
+            print("[Gemini] Empty text returned")
             return None
 
-        # Strip any accidental markdown fences
+        # Strip markdown fences
         raw = re.sub(r"^```(?:json)?\s*", "", raw)
         raw = re.sub(r"\s*```$", "", raw)
 
         parsed = json.loads(raw)
+        print(f"[Gemini] Extracted: {parsed.get('brand', '?')} - {parsed.get('item_name', '?')} (conf={parsed.get('confidence', 0)})")
         return AIOrderContext(**parsed)
 
     except json.JSONDecodeError as e:
-        print(f"Gemini JSON parse error: {e} | raw: {raw[:200]}")
+        print(f"[Gemini] JSON parse error: {e} | raw: {raw[:200]}")
         return None
     except Exception as e:
-        print(f"Gemini extraction error: {e}")
+        print(f"[Gemini] Extraction error: {e}")
         return None
