@@ -1,7 +1,6 @@
 """
 RETURNKART.IN — PYDANTIC DATA CONTRACTS
 Shared models used by: DB layer, AI service, API layer.
-Define the shape ONCE here. Import everywhere else.
 """
 from datetime import date, datetime
 from typing import Optional, Literal
@@ -10,7 +9,7 @@ from pydantic import BaseModel, Field
 
 
 class DPDPFields(BaseModel):
-    """DPDP Act 2023 compliance fields. Required on all models touching user data."""
+    """DPDP Act 2023 compliance fields."""
     consent_timestamp: Optional[datetime] = None
     purpose_id: Optional[str] = None
     data_expiry_date: Optional[date] = None
@@ -18,7 +17,6 @@ class DPDPFields(BaseModel):
 
 
 class ReturnPolicy(BaseModel):
-    """Return policy looked up from knowledge_base.json."""
     brand: str
     category: str
     return_window_days: int
@@ -29,9 +27,8 @@ class ReturnPolicy(BaseModel):
 
 
 class OrderBase(BaseModel):
-    """Core order fields shared between create and read."""
-    order_id: str = Field(..., description="Platform order ID e.g. 402-1234567-8901234")
-    brand: str = Field(..., description="Amazon, Myntra, Flipkart, Meesho, Ajio")
+    order_id: str = Field(..., description="Platform order ID")
+    brand: str = Field(..., description="Brand/store name")
     item_name: str
     price: float
     order_date: date
@@ -44,22 +41,20 @@ class OrderBase(BaseModel):
 
 
 class OrderCreate(OrderBase, DPDPFields):
-    """Used when inserting a new order into Supabase."""
     user_id: str
 
 
 class Order(OrderBase, DPDPFields):
-    """Full order as returned from DB."""
     id: UUID = Field(default_factory=uuid4)
     user_id: str
     created_at: Optional[datetime] = None
-
     class Config:
         from_attributes = True
 
 
 class AIOrderContext(BaseModel):
-    """Structured output Gemini must return when parsing an invoice email."""
+    """Structured output Gemini returns when parsing an invoice email.
+    Now includes return_window_days — Gemini researches this for unknown brands."""
     order_id: Optional[str] = None
     brand: Optional[str] = None
     item_name: Optional[str] = None
@@ -69,5 +64,7 @@ class AIOrderContext(BaseModel):
     category: Optional[str] = None
     courier_partner: Optional[str] = None
     delivery_pincode: Optional[str] = None
+    return_window_days: Optional[int] = None  # AI-researched return policy
+    is_replacement_only: Optional[bool] = None  # AI-researched: replacement only?
     confidence: float = Field(0.0, ge=0.0, le=1.0)
     raw_extraction_notes: Optional[str] = None
