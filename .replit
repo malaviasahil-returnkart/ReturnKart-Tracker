@@ -1,0 +1,14 @@
+run = "bash start.sh"
+entrypoint = "backend/main.py"
+hidden = [".config", ".upm", ".gitignore", "__pycache__"]
+modules = ["nodejs-20"]
+
+[nix]
+channel = "stable-24_05"
+
+[env]
+PYTHONPATH = "/home/runner/workspace"
+
+[deployment]
+run = ["sh", "-c", "cd /home/runner/workspace && PYTHONPATH=/home/runner/ReturnKart-Tracker .venv/bin/python -m backend.main"]
+build = ["sh", "-c", "cd /home/runner/workspace && .venv/bin/pip install -q -r backend/requirements.txt && cd frontend && npm install && npm run build"]
