@@ -10,5 +10,13 @@ channel = "stable-24_05"
 PYTHONPATH = "/home/runner/workspace"
 
 [deployment]
-run = ["sh", "-c", "cd /home/runner/workspace && PYTHONPATH=/home/runner/ReturnKart-Tracker .venv/bin/python -m backend.main"]
+run = ["sh", "-c", "cd /home/runner/workspace && PYTHONPATH=/home/runner/workspace .venv/bin/python -m backend.main"]
 build = ["sh", "-c", "cd /home/runner/workspace && .venv/bin/pip install -q -r backend/requirements.txt && cd frontend && npm install && npm run build"]
+
+[[ports]]
+localPort = 5173
+externalPort = 80
+
+[[ports]]
+localPort = 8000
+externalPort = 8000
