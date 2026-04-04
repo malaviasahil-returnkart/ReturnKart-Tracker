@@ -43,4 +43,14 @@ export const api = {
     method: 'POST',
     body: JSON.stringify({ user_id: userId }),
   }),
+
+  // DPDP Consent
+  logConsent: (userId, purposeId, consented, consentText) => request('/api/consent/log', {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId, purpose_id: purposeId, consented, consent_text: consentText }),
+  }),
+  getConsentHistory: (userId) => request(`/api/consent/history?user_id=${userId}`),
+
+  // DPDP Right to Erasure — delete ALL user data
+  deleteAllData: (userId) => request(`/api/consent/delete-all-data?user_id=${userId}`, { method: 'DELETE' }),
 }
