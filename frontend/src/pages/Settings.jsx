@@ -1,11 +1,73 @@
 import { useState } from 'react'
 import { api } from '../lib/api'
 import {
-  ArrowLeft, LogOut, Mail, Plus, Trash2, User, Shield, Clock
+  ArrowLeft, LogOut, Mail, Plus, Trash2, User, Shield, Clock, FileText
 } from 'lucide-react'
 
 export default function Settings({ userId, userProfile, accounts = [], onBack, onDisconnect, onDisconnectAccount, onAddAccount }) {
   const [confirming, setConfirming] = useState(null) // email or 'all'
+  const [deleting, setDeleting] = useState(false)
+  const [deleteResult, setDeleteResult] = useState(null)
+
+  // Consent audit trail
+  const [consentHistory, setConsentHistory] = useState([])
+  const [showConsent, setShowConsent] = useState(false)
+  const [loadingConsent, setLoadingConsent] = useState(false)
+
+  async function loadConsentHistory() {
+    setLoadingConsent(true)
+    try {
+      const data = await api.getConsentHistory(userId)
+      setConsentHistory(data.history || [])
+    } catch(e) { console.error(e) }
+    finally { setLoadingConsent(false) }
+  }
+
+  function toggleConsentHistory() {
+    if (!showConsent) loadConsentHistory()
+    setShowConsent(!showConsent)
+  }
+
+  async function handleDeleteAll() {
+    setDeleting(true)
+    try {
+      // Step 1: Log deletion consent BEFORE deleting
+      await api.logConsent(userId, 'data_delete_request', false,
+        'User requested deletion of all personal data under DPDP Act 2023 Right to Erasure.')
+
+      // Step 2: Actually delete all data from backend
+      const result = await api.deleteAllData(userId)
+      setDeleteResult(result.message || 'All data deleted successfully.')
+
+      // Step 3: Clear local state after delay so user sees confirmation
+      setTimeout(() => {
+        onDisconnect()
+      }, 2000)
+    } catch(e) {
+      console.error('Data deletion failed:', e)
+      setDeleteResult('Deletion failed. Please try again.')
+      setConfirming(null)
+      setTimeout(() => setDeleteResult(null), 5000)
+    } finally { setDeleting(false) }
+  }
+
+  async function handleDisconnectAccount(email) {
+    try {
+      // Log Gmail revocation consent
+      await api.logConsent(userId, 'gmail_revoke', false,
+        `User revoked Gmail access for ${email}.`)
+    } catch(e) { console.error('Consent log failed:', e) }
+    onDisconnectAccount(email)
+  }
+
+  const purposeLabels = {
+    gmail_read_access: { icon: '📧', label: 'Gmail Read Access' },
+    return_tracking: { icon: '⏰', label: 'Return Tracking' },
+    data_storage: { icon: '🗄️', label: 'Data Storage' },
+    gmail_revoke: { icon: '🚫', label: 'Gmail Revoked' },
+    data_delete_request: { icon: '🗑️', label: 'Data Deletion Request' },
+    platform_add: { icon: '🤖', label: 'Platform Added' },
+  }
 
   return (
     <div className="min-h-screen bg-vault-black flex flex-col">
@@ -58,7 +120,7 @@ export default function Settings({ userId, userProfile, accounts = [], onBack, o
                   {confirming === acct.email ? (
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => { onDisconnectAccount(acct.email); setConfirming(null) }}
+                        onClick={() => { handleDisconnectAccount(acct.email); setConfirming(null) }}
                         className="min-h-[36px] px-3 py-1.5 bg-red-500/20 text-red-400 rounded-lg text-xs font-semibold cursor-pointer active:scale-95 transition-transform"
                       >
                         Remove
@@ -111,20 +173,83 @@ export default function Settings({ userId, userProfile, accounts = [], onBack, o
               </p>
             </div>
           </div>
+
+          {/* Consent Audit Trail */}
+          <button onClick={toggleConsentHistory}
+            className="w-full bg-vault-card card-border rounded-2xl px-4 py-3 mt-3 flex items-center justify-between active:scale-[0.98] transition-transform cursor-pointer">
+            <div className="flex items-center gap-3">
+              <FileText size={18} className="text-vault-gold" />
+              <div className="text-left">
+                <p className="text-vault-text font-medium text-sm">Consent Audit Trail</p>
+                <p className="text-vault-muted text-xs">Timestamped log of all your consent decisions</p>
+              </div>
+            </div>
+            <span className="text-vault-muted text-sm">{showConsent ? '▲' : '▼'}</span>
+          </button>
+
+          {showConsent && (
+            <div className="bg-vault-card card-border rounded-2xl px-4 py-4 mt-2">
+              {loadingConsent ? (
+                <div className="flex justify-center py-4"><div className="w-5 h-5 border-2 border-vault-gold border-t-transparent rounded-full animate-spin" /></div>
+              ) : consentHistory.length === 0 ? (
+                <p className="text-vault-muted text-xs text-center py-2">No consent events logged yet.</p>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {consentHistory.map((event, i) => {
+                    const purpose = purposeLabels[event.purpose_id] || { icon: '•', label: event.purpose_id }
+                    return (
+                      <div key={event.id || i} className="flex items-start gap-3 bg-vault-black rounded-xl px-3 py-2.5 card-border">
+                        <span className="text-base mt-0.5">{purpose.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-vault-text text-xs font-medium">{purpose.label}</p>
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${
+                              event.consented ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'
+                            }`}>{event.consented ? 'Granted' : 'Revoked'}</span>
+                          </div>
+                          <p className="text-vault-muted text-[10px] mt-0.5 truncate">{event.consent_text}</p>
+                          <p className="text-vault-muted text-[9px] mt-0.5">
+                            {new Date(event.created_at).toLocaleString('en-IN', {
+                              day: 'numeric', month: 'short', year: 'numeric',
+                              hour: '2-digit', minute: '2-digit', hour12: true
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </section>
 
         {/* ─── Danger Zone ────────────────────────────────────────── */}
         <section>
           <h2 className="text-vault-muted text-xs font-semibold uppercase tracking-wider mb-3">Account</h2>
+
+          {deleteResult && (
+            <div className="bg-vault-card card-border rounded-xl px-4 py-3 mb-3 text-center">
+              <p className="text-vault-safe text-xs">{deleteResult}</p>
+            </div>
+          )}
+
           {confirming === 'all' ? (
             <div className="bg-red-500/10 border border-red-500/30 rounded-2xl px-4 py-4">
-              <p className="text-red-400 text-sm font-medium mb-3">Disconnect all accounts and delete all data?</p>
+              <p className="text-red-400 text-sm font-medium mb-1">Delete all data and disconnect?</p>
+              <p className="text-vault-muted text-xs mb-3">This will permanently erase all orders, evidence, and tokens. Consent audit trail is preserved as legally required.</p>
               <div className="flex gap-3">
                 <button
-                  onClick={() => { onDisconnect(); setConfirming(null) }}
-                  className="flex-1 min-h-[44px] bg-red-500/20 text-red-400 py-3 rounded-xl font-semibold text-sm cursor-pointer active:scale-95 transition-transform"
+                  onClick={handleDeleteAll}
+                  disabled={deleting}
+                  className="flex-1 min-h-[44px] bg-red-500/20 text-red-400 py-3 rounded-xl font-semibold text-sm cursor-pointer active:scale-95 transition-transform disabled:opacity-50"
                 >
-                  Yes, Disconnect All
+                  {deleting ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+                      Deleting...
+                    </span>
+                  ) : 'Yes, Delete Everything'}
                 </button>
                 <button
                   onClick={() => setConfirming(null)}
@@ -141,8 +266,8 @@ export default function Settings({ userId, userProfile, accounts = [], onBack, o
             >
               <LogOut size={18} className="text-red-400" />
               <div className="text-left">
-                <p className="text-red-400 text-sm font-semibold">Disconnect All & Logout</p>
-                <p className="text-vault-muted text-xs">Remove all Gmail accounts and clear data</p>
+                <p className="text-red-400 text-sm font-semibold">Delete All Data & Disconnect</p>
+                <p className="text-vault-muted text-xs">DPDP Right to Erasure — permanently erase everything</p>
               </div>
             </button>
           )}
