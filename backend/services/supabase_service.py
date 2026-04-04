@@ -283,3 +283,24 @@ async def log_consent(
     }
     result = get_client().table("user_consents").insert(data).execute()
     return result.data[0] if result.data else {}
+
+
+# ───── DATA DELETION (DPDP ACT 2023 — RIGHT TO ERASURE) ─────
+
+async def delete_all_user_data(user_id) -> dict:
+    """
+    DPDP Act 2023 — Right to Erasure.
+    Deletes ALL user data from: orders, evidence_locker, gmail_tokens, platforms.
+    IMPORTANT: user_consents are NEVER deleted — they are the legally-required
+    audit trail proving we had consent and that deletion was requested.
+    """
+    client = get_client()
+    deleted = {}
+    tables = ["evidence_locker", "orders", "gmail_tokens", "platforms"]
+    for table in tables:
+        try:
+            result = client.table(table).delete().eq("user_id", user_id).execute()
+            deleted[table] = len(result.data) if result.data else 0
+        except Exception as e:
+            deleted[table] = f"error: {str(e)}"
+    return deleted
