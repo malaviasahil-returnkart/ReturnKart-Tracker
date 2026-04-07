@@ -239,11 +239,11 @@ async def _sync_single_account(
                 seen_ids.add(msg_id)
                 unique_refs.append((msg_id, platform))
 
-        fetch_tasks = [
-            _fetch_email_async(service, msg_id)
-            for msg_id, _ in unique_refs
-        ]
-        fetched_msgs = await asyncio.gather(*fetch_tasks)
+        # Fetch emails sequentially — Gmail API client is NOT thread-safe
+        fetched_msgs = []
+        for msg_id, _ in unique_refs:
+            msg = await _fetch_email_async(service, msg_id)
+            fetched_msgs.append(msg)
 
         msg_platform_pairs = [
             (msg, platform)

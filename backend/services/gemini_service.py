@@ -5,7 +5,7 @@ Calls Gemini 1.5 Flash via REST API using httpx.
 No google-generativeai SDK — eliminates Python 3.10 import crash permanently.
 
 REST endpoint:
-  POST https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=API_KEY
+  POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=API_KEY
 
 Input:  raw email/SMS/WhatsApp text + platform hint
 Output: AIOrderContext (order_id, brand, item_name, price, date, category)
@@ -22,7 +22,7 @@ from backend.models.order import AIOrderContext
 
 GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models"
-    "/gemini-1.5-flash:generateContent"
+    "/gemini-2.5-flash:generateContent"
 )
 
 _KB_PATH = Path(__file__).parent.parent / "data" / "knowledge_base.json"
@@ -98,7 +98,7 @@ async def _call_gemini_api(prompt: str) -> str:
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {
             "temperature": 0.1,
-            "maxOutputTokens": 512,
+            "maxOutputTokens": 2048,
         },
     }
     async with httpx.AsyncClient(timeout=30.0) as client:
