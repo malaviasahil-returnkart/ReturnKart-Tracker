@@ -203,7 +203,12 @@ async def bulk_upsert_orders(orders: list[OrderCreate]) -> int:
     if not orders:
         return 0
     client = get_client()
-    rows = [_order_to_dict(o) for o in orders]
+    # Deduplicate by order_id — keep last occurrence (most recent email)
+    seen = {}
+    for o in orders:
+        seen[o.order_id] = o
+    unique_orders = list(seen.values())
+    rows = [_order_to_dict(o) for o in unique_orders]
     result = (
         client.table("orders")
         .upsert(rows, on_conflict="user_id,order_id")
