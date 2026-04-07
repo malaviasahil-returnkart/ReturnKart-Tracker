@@ -1,8 +1,7 @@
 """
-RETURNKART.IN — GMAIL SERVICE (MULTI-ACCOUNT)
+RETURNKART.IN — GMAIL SERVICE (v2)
 
-Sync now iterates over ALL connected Gmail accounts for a user.
-Each account is synced independently with its own credentials.
+Universal query, sequential fetch, Python deadline calc.
 """
 import asyncio
 import base64
@@ -20,72 +19,22 @@ from backend.services.supabase_service import (
     bulk_upsert_orders,
 )
 from backend.services.date_utils import parse_email_header_date, resolve_order_date
+from backend.services.return_calculator import calculate_return_deadline
 from backend.models.order import OrderCreate
 
 IST = timezone(timedelta(hours=5, minutes=30))
 
-_ORDER_SUBJECTS = (
-    "subject:(order OR ordered OR dispatch OR dispatched OR shipped OR "
-    "delivery OR delivered OR return OR refund OR exchange OR replacement OR confirm)"
+GMAIL_QUERY = (
+    'category:purchases OR category:updates OR '
+    'subject:"order confirmation" OR subject:"order confirmed" OR '
+    'subject:"has been delivered" OR subject:"out for delivery" OR '
+    'subject:"payment successful" OR subject:"shipped"'
 )
 
-PLATFORM_QUERIES = {
-    "amazon": (
-        "from:(amazon.in OR @amazon.in OR auto-confirm@amazon.in OR "
-        "shipment-tracking@amazon.in OR order-update@amazon.in OR "
-        "returns@amazon.in OR refund@amazon.in OR "
-        "no-reply@amazon.in OR donotreply@amazon.in) "
-        + _ORDER_SUBJECTS
-    ),
-    "flipkart": (
-        "from:(flipkart.com OR @flipkart.com OR noreply@flipkart.com OR "
-        "no-reply@flipkart.com OR order@flipkart.com OR "
-        "returns@flipkart.com OR track@flipkart.com) "
-        + _ORDER_SUBJECTS
-    ),
-    "myntra": (
-        "from:(myntra.com OR @myntra.com OR noreply@myntra.com OR "
-        "no-reply@myntra.com OR returns@myntra.com) "
-        + _ORDER_SUBJECTS
-    ),
-    "meesho": (
-        "from:(meesho.com OR @meesho.com OR noreply@meesho.com OR "
-        "no-reply@meesho.com OR support@meesho.com) "
-        + _ORDER_SUBJECTS
-    ),
-    "ajio": (
-        "from:(ajio.com OR @ajio.com OR noreply@ajio.com OR "
-        "no-reply@ajio.com OR care@ajio.com) "
-        + _ORDER_SUBJECTS
-    ),
-    "nykaa": (
-        "from:(nykaa.com OR @nykaa.com OR noreply@nykaa.com OR "
-        "no-reply@nykaa.com OR care@nykaa.com OR orders@nykaa.com) "
-        + _ORDER_SUBJECTS
-    ),
-    "jiomart": (
-        "from:(jiomart.com OR @jiomart.com OR noreply@jiomart.com OR "
-        "care@jiomart.com) "
-        + _ORDER_SUBJECTS
-    ),
-    "tatacliq": (
-        "from:(tatacliq.com OR @tatacliq.com OR noreply@tatacliq.com OR "
-        "care@tatacliq.com) "
-        + _ORDER_SUBJECTS
-    ),
-    "snapdeal": (
-        "from:(snapdeal.com OR @snapdeal.com OR noreply@snapdeal.com OR "
-        "cs@snapdeal.com) "
-        + _ORDER_SUBJECTS
-    ),
-    "croma": (
-        "from:(croma.com OR @croma.com OR noreply@croma.com OR "
-        "care@croma.com) "
-        + _ORDER_SUBJECTS
-    ),
-}
+# Backward compat for orders.py import
+PLATFORM_QUERIES = {"universal": GMAIL_QUERY}
 
-GEMINI_CONCURRENCY = 5
+GEMINI_CONCURRENCY = 3
 
 
 def _build_credentials(token_row: dict) -> Credentials:
@@ -102,7 +51,8 @@ def _build_credentials(token_row: dict) -> Credentials:
 async def _refresh_if_needed(user_id: str, token_row: dict) -> Credentials:
     creds = _build_credentials(token_row)
     if creds.expired and creds.refresh_token:
-        creds.refresh(GoogleRequest())
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, lambda: creds.refresh(GoogleRequest()))
         await save_gmail_token(
             user_id=user_id,
             access_token=creds.token,
@@ -120,11 +70,20 @@ def _decode_email_body(payload: dict) -> str:
         body = base64.urlsafe_b64decode(payload["body"]["data"]).decode("utf-8", errors="ignore")
     elif payload.get("parts"):
         for part in payload["parts"]:
-            if part.get("mimeType") == "text/plain" and part.get("body", {}).get("data"):
-                body = base64.urlsafe_b64decode(part["body"]["data"]).decode("utf-8", errors="ignore")
-                break
-            elif part.get("mimeType") == "text/html" and part.get("body", {}).get("data"):
-                body = base64.urlsafe_b64decode(part["body"]["data"]).decode("utf-8", errors="ignore")
+            mime = part.get("mimeType", "")
+            data = part.get("body", {}).get("data")
+            if not data:
+                for subpart in part.get("parts", []):
+                    sub_data = subpart.get("body", {}).get("data")
+                    if sub_data and subpart.get("mimeType") in ("text/plain", "text/html"):
+                        body = base64.urlsafe_b64decode(sub_data).decode("utf-8", errors="ignore")
+                        if subpart["mimeType"] == "text/plain":
+                            return body[:8000]
+                continue
+            if mime == "text/plain":
+                return base64.urlsafe_b64decode(data).decode("utf-8", errors="ignore")[:8000]
+            elif mime == "text/html":
+                body = base64.urlsafe_b64decode(data).decode("utf-8", errors="ignore")
     return body[:8000]
 
 
@@ -135,75 +94,94 @@ def _get_header(headers: list, name: str) -> str:
     return ""
 
 
-def _fetch_email_sync(service, msg_id: str) -> dict:
-    return (
-        service.users()
-        .messages()
-        .get(userId="me", id=msg_id, format="full")
-        .execute()
-    )
-
-
-async def _fetch_email_async(service, msg_id: str) -> Optional[dict]:
-    loop = asyncio.get_event_loop()
-    try:
-        return await loop.run_in_executor(None, _fetch_email_sync, service, msg_id)
-    except Exception as e:
-        print(f"[Gmail] Failed to fetch email {msg_id}: {e}")
-        return None
+def _guess_brand(sender: str, subject: str) -> str:
+    text = (sender + " " + subject).lower()
+    brands = {
+        "amazon": "amazon", "flipkart": "flipkart", "myntra": "myntra",
+        "meesho": "meesho", "ajio": "ajio", "nykaa": "nykaa",
+        "jiomart": "jiomart", "tatacliq": "tatacliq", "snapdeal": "snapdeal",
+        "croma": "croma", "temu": "temu", "swiggy": "swiggy",
+        "zomato": "zomato", "blinkit": "blinkit", "bigbasket": "bigbasket",
+    }
+    for keyword, slug in brands.items():
+        if keyword in text:
+            return slug
+    return "unknown"
 
 
 async def _process_one_email(
-    msg: dict,
-    platform: str,
+    service,
+    msg_id: str,
     user_id: str,
-    semaphore: asyncio.Semaphore,
 ) -> Optional[OrderCreate]:
     from backend.services.gemini_service import extract_order_from_email
 
-    async with semaphore:
-        try:
-            headers  = msg.get("payload", {}).get("headers", [])
-            subject  = _get_header(headers, "subject")
-            sender   = _get_header(headers, "from")
-            date_str = _get_header(headers, "date")
-            body     = _decode_email_body(msg.get("payload", {}))
+    try:
+        loop = asyncio.get_event_loop()
+        msg = await loop.run_in_executor(
+            None,
+            lambda mid=msg_id: service.users().messages().get(
+                userId="me", id=mid, format="full"
+            ).execute()
+        )
+        if not msg:
+            return None
 
-            email_received_date = parse_email_header_date(date_str)
-            email_text = f"Subject: {subject}\nFrom: {sender}\nDate: {date_str}\n\n{body}"
+        headers = msg.get("payload", {}).get("headers", [])
+        subject = _get_header(headers, "subject")
+        sender = _get_header(headers, "from")
+        date_str = _get_header(headers, "date")
+        body = _decode_email_body(msg.get("payload", {}))
 
-            extracted = await extract_order_from_email(email_text, platform)
+        email_received_date = parse_email_header_date(date_str)
+        brand_slug = _guess_brand(sender, subject)
 
-            if extracted and extracted.order_id:
-                return OrderCreate(
-                    user_id=user_id,
-                    order_id=extracted.order_id,
-                    brand=extracted.brand or platform.title(),
-                    item_name=extracted.item_name or "Unknown item",
-                    price=extracted.total_amount or 0.0,
-                    order_date=resolve_order_date(
-                        gemini_date=extracted.order_date,
-                        fallback_date=email_received_date,
-                        context=f"{platform} {extracted.order_id}",
-                    ),
-                    category=extracted.category,
-                    courier_partner=extracted.courier_partner,
-                    delivery_pincode=extracted.delivery_pincode,
-                    purpose_id="return_tracking",
-                    consent_timestamp=datetime.now(IST),
-                    source="gmail",
-                )
-        except Exception as e:
-            print(f"[Gmail] Error processing email for {platform}: {e}")
-        return None
+        email_text = f"Subject: {subject}\nFrom: {sender}\nDate: {date_str}\n\n{body}"
+
+        extracted = await extract_order_from_email(email_text, brand_slug)
+
+        if extracted and extracted.order_id:
+            order_date = resolve_order_date(
+                gemini_date=extracted.order_date,
+                fallback_date=email_received_date,
+                context=f"{brand_slug} {extracted.order_id}",
+            )
+
+            brand_for_calc = (extracted.brand or brand_slug).lower().replace(" ", "")
+            brand_map = {
+                "amazonindia": "amazon", "amazon.in": "amazon",
+                "amazon": "amazon", "flipkart": "flipkart",
+                "myntra": "myntra", "meesho": "meesho",
+                "ajio": "ajio", "nykaa": "nykaa", "temu": "temu",
+            }
+            calc_slug = brand_map.get(brand_for_calc, brand_slug)
+            return_deadline = calculate_return_deadline(order_date, calc_slug)
+
+            return OrderCreate(
+                user_id=user_id,
+                order_id=extracted.order_id,
+                brand=extracted.brand or brand_slug.title(),
+                item_name=extracted.item_name or "Unknown item",
+                price=extracted.total_amount or 0.0,
+                order_date=order_date,
+                return_deadline=return_deadline,
+                category=extracted.category,
+                courier_partner=extracted.courier_partner,
+                delivery_pincode=extracted.delivery_pincode,
+                purpose_id="return_tracking",
+                consent_timestamp=datetime.now(IST),
+                source="gmail",
+            )
+    except Exception as e:
+        print(f"[Gmail] Error processing email {msg_id}: {e}")
+    return None
 
 
 async def _sync_single_account(
     user_id: str,
     token_row: dict,
-    max_emails: int = 100,
+    max_emails: int = 50,
 ) -> dict:
-    """Sync orders from ONE Gmail account."""
     account_email = token_row.get("user_email", "unknown")
 
     try:
@@ -213,53 +191,31 @@ async def _sync_single_account(
             None, lambda: build("gmail", "v1", credentials=creds)
         )
 
-        all_refs: list[tuple[str, str]] = []
-        per_platform = max(1, max_emails // len(PLATFORM_QUERIES))
+        try:
+            results = await loop.run_in_executor(
+                None,
+                lambda: service.users().messages().list(
+                    userId="me", q=GMAIL_QUERY, maxResults=max_emails
+                ).execute()
+            )
+            msg_ids = [m["id"] for m in results.get("messages", [])]
+        except Exception as e:
+            print(f"[Gmail:{account_email}] Query error: {e}")
+            return {"account": account_email, "synced": 0, "new_orders": 0, "errors": 1, "error_detail": str(e)}
 
-        for platform, query in PLATFORM_QUERIES.items():
-            try:
-                results = await loop.run_in_executor(
-                    None,
-                    lambda q=query: service.users().messages().list(
-                        userId="me", q=q, maxResults=per_platform
-                    ).execute()
-                )
-                for m in results.get("messages", []):
-                    all_refs.append((m["id"], platform))
-            except Exception as e:
-                print(f"[Gmail:{account_email}] List error for {platform}: {e}")
+        if not msg_ids:
+            return {"account": account_email, "synced": 0, "new_orders": 0, "errors": 0, "detail": "No emails matched"}
 
-        if not all_refs:
-            return {"account": account_email, "synced": 0, "new_orders": 0, "errors": 0}
+        print(f"[Gmail:{account_email}] Found {len(msg_ids)} emails to process")
 
-        seen_ids: set[str] = set()
-        unique_refs = []
-        for msg_id, platform in all_refs:
-            if msg_id not in seen_ids:
-                seen_ids.add(msg_id)
-                unique_refs.append((msg_id, platform))
+        # Sequential processing
+        results_list = []
+        for msg_id in msg_ids:
+            result = await _process_one_email(service, msg_id, user_id)
+            results_list.append(result)
 
-        # Fetch emails sequentially — Gmail API client is NOT thread-safe
-        fetched_msgs = []
-        for msg_id, _ in unique_refs:
-            msg = await _fetch_email_async(service, msg_id)
-            fetched_msgs.append(msg)
-
-        msg_platform_pairs = [
-            (msg, platform)
-            for (msg, (_, platform)) in zip(fetched_msgs, unique_refs)
-            if msg is not None
-        ]
-
-        semaphore = asyncio.Semaphore(GEMINI_CONCURRENCY)
-        gemini_tasks = [
-            _process_one_email(msg, platform, user_id, semaphore)
-            for msg, platform in msg_platform_pairs
-        ]
-        results = await asyncio.gather(*gemini_tasks)
-
-        orders = [r for r in results if r is not None]
-        errors = len([r for r in results if r is None and r != 0])
+        orders = [r for r in results_list if r is not None]
+        errors = sum(1 for r in results_list if r is None)
 
         new_orders = 0
         if orders:
@@ -267,9 +223,10 @@ async def _sync_single_account(
 
         return {
             "account": account_email,
-            "synced": len(msg_platform_pairs),
+            "synced": len(msg_ids),
+            "extracted": len(orders),
             "new_orders": new_orders,
-            "errors": max(0, errors),
+            "errors": errors,
         }
 
     except Exception as e:
@@ -277,15 +234,11 @@ async def _sync_single_account(
         return {"account": account_email, "synced": 0, "new_orders": 0, "errors": 1, "error_detail": str(e)}
 
 
-async def sync_gmail_orders(user_id: str, max_emails: int = 100) -> dict:
-    """
-    Sync orders from ALL connected Gmail accounts.
-    """
+async def sync_gmail_orders(user_id: str, max_emails: int = 50) -> dict:
     all_tokens = await get_all_gmail_tokens(user_id)
     if not all_tokens:
         return {"error": "No Gmail accounts connected", "synced": 0, "new_orders": 0}
 
-    # Sync each account
     account_results = []
     total_synced = 0
     total_new = 0
@@ -303,6 +256,5 @@ async def sync_gmail_orders(user_id: str, max_emails: int = 100) -> dict:
         "new_orders": total_new,
         "errors": total_errors,
         "accounts_synced": len(all_tokens),
-        "platforms_searched": len(PLATFORM_QUERIES),
         "per_account": account_results,
     }

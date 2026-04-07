@@ -65,7 +65,7 @@ class AIOrderContext(BaseModel):
     brand: Optional[str] = None
     item_name: Optional[str] = None
     total_amount: Optional[float] = None
-    currency: str = "INR"
+    currency: Optional[str] = "INR"
     order_date: Optional[str] = None
     category: Optional[str] = None
     courier_partner: Optional[str] = None

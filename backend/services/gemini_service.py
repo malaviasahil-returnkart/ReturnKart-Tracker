@@ -1,21 +1,15 @@
 """
-RETURNKART.IN — GEMINI AI SERVICE
+RETURNKART.IN — GEMINI AI SERVICE (v2)
 
-Calls Gemini 1.5 Flash via REST API using httpx.
-No google-generativeai SDK — eliminates Python 3.10 import crash permanently.
-
-REST endpoint:
-  POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=API_KEY
-
-Input:  raw email/SMS/WhatsApp text + platform hint
-Output: AIOrderContext (order_id, brand, item_name, price, date, category)
+Simplified: strip HTML, 5-field prompt, Python handles deadlines.
+Model: gemini-2.5-flash via REST (no SDK)
 """
 import json
 import re
-from pathlib import Path
 from typing import Optional
 
 import httpx
+from bs4 import BeautifulSoup
 
 from backend.config import GEMINI_API_KEY
 from backend.models.order import AIOrderContext
@@ -25,75 +19,44 @@ GEMINI_URL = (
     "/gemini-2.5-flash:generateContent"
 )
 
-_KB_PATH = Path(__file__).parent.parent / "data" / "knowledge_base.json"
-_knowledge_base: Optional[dict] = None
+
+def strip_html(raw_text: str) -> str:
+    """Strip all HTML tags, return clean readable text."""
+    if "<" in raw_text and ">" in raw_text:
+        soup = BeautifulSoup(raw_text, "html.parser")
+        for tag in soup(["script", "style", "head", "meta", "link"]):
+            tag.decompose()
+        text = soup.get_text(separator="\n", strip=True)
+    else:
+        text = raw_text
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    text = re.sub(r" {2,}", " ", text)
+    return text[:6000]
 
 
-def _load_knowledge_base() -> dict:
-    global _knowledge_base
-    if _knowledge_base is None:
-        with open(_KB_PATH, "r", encoding="utf-8") as f:
-            _knowledge_base = json.load(f)
-    return _knowledge_base
+EXTRACTION_PROMPT = """You are a data extraction bot for ReturnKart.in, an Indian e-commerce return tracker.
 
+Extract order information from the email text below.
+Return ONLY a valid JSON object. No markdown, no explanation, no code fences, no extra text.
 
-def _get_platform_policy(platform_slug: str) -> str:
-    kb = _load_knowledge_base()
-    for p in kb.get("platforms", []):
-        if p["brand_slug"] == platform_slug:
-            lines = [f"Platform: {p['brand']}"]
-            for cat in p.get("categories", []):
-                lines.append(
-                    f"  - {cat['category']}: {cat['return_window_days']} days "
-                    f"({'replacement only' if cat['is_replacement_only'] else 'refund'})"
-                )
-            return "\n".join(lines)
-    fb = kb.get("fallback_policy", {})
-    return f"Fallback: {fb.get('return_window_days', 7)} day return window"
-
-
-def _build_prompt(email_text: str, platform_slug: str, policy_snippet: str) -> str:
-    return f"""You are an AI assistant for ReturnKart.in, an Indian e-commerce return tracker.
-
-Your job: extract structured order information from the email below.
-Return ONLY valid JSON. No markdown, no explanation, no code fences.
-
-Return policy context for {platform_slug}:
-{policy_snippet}
-
-Extract this JSON structure:
-{{
-  "order_id": "platform order ID string or null",
-  "brand": "Amazon India | Myntra | Flipkart | Meesho | Ajio or null",
-  "item_name": "product name string or null",
-  "total_amount": number or null,
-  "currency": "INR",
-  "order_date": "YYYY-MM-DD or null",
-  "category": "Fashion & Apparel | Electronics | Home & Kitchen | Books | Default or null",
-  "courier_partner": "courier name or null",
-  "delivery_pincode": "6-digit pincode or null",
-  "confidence": 0.0 to 1.0
-}}
+JSON schema (return EXACTLY this structure):
+{"order_id": "string or null", "brand": "string or null", "item_name": "string or null", "purchase_price": 0.00, "delivery_date": "YYYY-MM-DD or null"}
 
 Rules:
-- order_date MUST be in YYYY-MM-DD format
-- total_amount MUST be a number (no currency symbols)
-- If you cannot find a field, use null
-- confidence: 1.0 = very sure, 0.5 = guessing, 0.0 = not found
-- Only extract data explicitly present in the email — never invent data
+- order_id: the platform order/transaction ID
+- brand: e-commerce platform name (Amazon, Flipkart, Myntra, Meesho, Ajio, Nykaa, Temu, etc.)
+- item_name: main product name, keep short
+- purchase_price: numeric amount in INR, no symbols. 0 if not found.
+- delivery_date: actual or estimated delivery date in YYYY-MM-DD. null if not found.
+- If a field is not found, use null (or 0 for purchase_price)
+- Do NOT invent data. Only extract what is explicitly present.
+- Do NOT calculate return deadlines.
 
-Email:
-{email_text}
-
-JSON:"""
+Email text:
+"""
 
 
 async def _call_gemini_api(prompt: str) -> str:
-    """
-    Async REST call to Gemini 1.5 Flash.
-    Returns the raw text response.
-    httpx is already async — no thread pool needed.
-    """
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {
@@ -113,31 +76,40 @@ async def _call_gemini_api(prompt: str) -> str:
 
 
 async def call_gemini(prompt: str) -> str:
-    """
-    Public helper — call Gemini with any prompt, get raw text back.
-    Used by whatsapp_service and sms_service.
-    """
+    """Public helper for other services."""
     return await _call_gemini_api(prompt)
 
 
 async def extract_order_from_email(
     email_text: str,
-    platform_slug: str = "amazon",
+    platform_slug: str = "unknown",
 ) -> Optional[AIOrderContext]:
-    """
-    Extract structured order data from an email.
-    Safe to call with asyncio.gather() for parallelism.
-    """
     try:
-        policy_snippet = _get_platform_policy(platform_slug)
-        prompt = _build_prompt(email_text, platform_slug, policy_snippet)
+        clean_text = strip_html(email_text)
+        if len(clean_text.strip()) < 20:
+            print("[Gemini] Email too short after stripping, skipping")
+            return None
+
+        prompt = EXTRACTION_PROMPT + clean_text + "\n\nJSON:"
         raw = await _call_gemini_api(prompt)
 
         raw = re.sub(r"^```(?:json)?\s*", "", raw)
         raw = re.sub(r"\s*```$", "", raw)
 
         data = json.loads(raw)
-        return AIOrderContext(**data)
+
+        return AIOrderContext(
+            order_id=data.get("order_id"),
+            brand=data.get("brand"),
+            item_name=data.get("item_name"),
+            total_amount=data.get("purchase_price") or 0.0,
+            currency="INR",
+            order_date=data.get("delivery_date"),
+            category=None,
+            courier_partner=None,
+            delivery_pincode=None,
+            confidence=0.8 if data.get("order_id") else 0.3,
+        )
 
     except json.JSONDecodeError as e:
         print(f"[Gemini] JSON parse error: {e}")
