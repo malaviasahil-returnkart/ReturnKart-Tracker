@@ -24,12 +24,19 @@ from backend.models.order import OrderCreate
 
 IST = timezone(timedelta(hours=5, minutes=30))
 
-GMAIL_QUERY = (
-    'category:purchases OR category:updates OR '
-    'subject:"order confirmation" OR subject:"order confirmed" OR '
-    'subject:"has been delivered" OR subject:"out for delivery" OR '
-    'subject:"payment successful" OR subject:"shipped"'
-)
+def _build_gmail_query(days: int = 30) -> str:
+    from datetime import datetime, timedelta
+    cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y/%m/%d")
+    return (
+        f'after:{cutoff} ('
+        'category:purchases OR category:updates OR '
+        'subject:"order confirmation" OR subject:"order confirmed" OR '
+        'subject:"has been delivered" OR subject:"out for delivery" OR '
+        'subject:"payment successful" OR subject:"shipped"'
+        ')'
+    )
+
+GMAIL_QUERY = _build_gmail_query(30)
 
 # Backward compat for orders.py import
 PLATFORM_QUERIES = {"universal": GMAIL_QUERY}
@@ -102,6 +109,10 @@ def _guess_brand(sender: str, subject: str) -> str:
         "jiomart": "jiomart", "tatacliq": "tatacliq", "snapdeal": "snapdeal",
         "croma": "croma", "temu": "temu", "swiggy": "swiggy",
         "zomato": "zomato", "blinkit": "blinkit", "bigbasket": "bigbasket",
+        "h&m": "hm", "hm.com": "hm", "zara": "zara", "uniqlo": "uniqlo",
+        "levi": "levis", "nike": "nike", "adidas": "adidas", "puma": "puma",
+        "zepto": "zepto", "dunzo": "dunzo", "uber": "uber", "ola": "ola",
+        "rapido": "rapido", "eventbrite": "eventbrite", "bookmyshow": "bookmyshow",
     }
     for keyword, slug in brands.items():
         if keyword in text:
@@ -138,9 +149,25 @@ async def _process_one_email(
 
         email_text = f"Subject: {subject}\nFrom: {sender}\nDate: {date_str}\n\n{body}"
 
+        # Block non-ecommerce brands at Python level
+        BLOCKED_BRANDS = {
+            "swiggy", "zomato", "blinkit", "zepto", "bigbasket", "dunzo",
+            "uber", "ola", "rapido", "eventbrite", "bookmyshow", "paytm",
+            "gpay", "phonepe", "netflix", "spotify", "hotstar", "youtube",
+            "airtel", "jio", "vi", "bsnl",
+        }
+        if brand_slug in BLOCKED_BRANDS:
+            print(f"[Gmail] Blocked non-ecommerce brand: {brand_slug}")
+            return None
+
         extracted = await extract_order_from_email(email_text, brand_slug)
 
         if extracted and extracted.order_id:
+            # Also block if Gemini returned a blocked brand
+            extracted_brand_lower = (extracted.brand or "").lower()
+            if any(b in extracted_brand_lower for b in BLOCKED_BRANDS):
+                print(f"[Gmail] Blocked non-ecommerce brand from Gemini: {extracted.brand}")
+                return None
             order_date = resolve_order_date(
                 gemini_date=extracted.order_date,
                 fallback_date=email_received_date,
@@ -180,7 +207,7 @@ async def _process_one_email(
 async def _sync_single_account(
     user_id: str,
     token_row: dict,
-    max_emails: int = 50,
+    max_emails: int = 500,
 ) -> dict:
     account_email = token_row.get("user_email", "unknown")
 
@@ -234,7 +261,7 @@ async def _sync_single_account(
         return {"account": account_email, "synced": 0, "new_orders": 0, "errors": 1, "error_detail": str(e)}
 
 
-async def sync_gmail_orders(user_id: str, max_emails: int = 50) -> dict:
+async def sync_gmail_orders(user_id: str, max_emails: int = 500) -> dict:
     all_tokens = await get_all_gmail_tokens(user_id)
     if not all_tokens:
         return {"error": "No Gmail accounts connected", "synced": 0, "new_orders": 0}

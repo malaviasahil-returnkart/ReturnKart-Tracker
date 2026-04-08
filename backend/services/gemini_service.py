@@ -36,21 +36,36 @@ def strip_html(raw_text: str) -> str:
 
 EXTRACTION_PROMPT = """You are a data extraction bot for ReturnKart.in, an Indian e-commerce return tracker.
 
-Extract order information from the email text below.
-Return ONLY a valid JSON object. No markdown, no explanation, no code fences, no extra text.
+Your job: determine if this email is a REAL PRODUCT ORDER, and if so, extract the details.
 
-JSON schema (return EXACTLY this structure):
+ONLY extract orders for PHYSICAL PRODUCTS bought from Indian e-commerce platforms.
+
+REJECT and return all nulls for:
+- Event tickets (Eventbrite, BookMyShow, Paytm Insider, etc.)
+- Food delivery (Swiggy, Zomato, Blinkit, BigBasket, Zepto)
+- Cab rides (Uber, Ola, Rapido)
+- Bill payments, recharges, subscriptions
+- Promotional/marketing emails with no actual order
+- Informational emails (account updates, policy changes, recommendations)
+- Newsletter or sale announcements
+- Emails that mention products but have NO order ID or NO purchase confirmation
+
+ONLY process emails that are ACTUAL ORDER CONFIRMATIONS or DELIVERY NOTIFICATIONS for physical products from:
+Amazon, Flipkart, Myntra, Meesho, Ajio, Nykaa, Croma, Tata CLiQ, Snapdeal, JioMart, Temu
+
+Return ONLY a valid JSON object. No markdown, no explanation, no code fences.
+
+JSON schema:
 {"order_id": "string or null", "brand": "string or null", "item_name": "string or null", "purchase_price": 0.00, "delivery_date": "YYYY-MM-DD or null"}
 
 Rules:
-- order_id: the platform order/transaction ID
-- brand: e-commerce platform name (Amazon, Flipkart, Myntra, Meesho, Ajio, Nykaa, Temu, etc.)
-- item_name: main product name, keep short
-- purchase_price: numeric amount in INR, no symbols. 0 if not found.
-- delivery_date: actual or estimated delivery date in YYYY-MM-DD. null if not found.
-- If a field is not found, use null (or 0 for purchase_price)
-- Do NOT invent data. Only extract what is explicitly present.
-- Do NOT calculate return deadlines.
+- If this is NOT a real product order, return: {"order_id": null, "brand": null, "item_name": null, "purchase_price": 0, "delivery_date": null}
+- order_id: the platform order/transaction ID from a confirmed purchase
+- brand: the e-commerce platform (Amazon, Flipkart, Myntra, etc.)
+- item_name: the actual physical product ordered
+- purchase_price: amount in INR, numeric only. 0 if not found.
+- delivery_date: in YYYY-MM-DD format. null if not found.
+- Do NOT invent data. Do NOT guess. Only extract what is explicitly stated.
 
 Email text:
 """
@@ -98,17 +113,26 @@ async def extract_order_from_email(
 
         data = json.loads(raw)
 
+        # Validate: must have order_id AND item_name to be a real order
+        order_id = data.get("order_id")
+        item_name = data.get("item_name")
+        brand = data.get("brand")
+
+        if not order_id or not item_name:
+            print(f"[Gemini] Skipped: no order_id or item_name (brand={brand})")
+            return None
+
         return AIOrderContext(
-            order_id=data.get("order_id"),
-            brand=data.get("brand"),
-            item_name=data.get("item_name"),
+            order_id=order_id,
+            brand=brand,
+            item_name=item_name,
             total_amount=data.get("purchase_price") or 0.0,
             currency="INR",
             order_date=data.get("delivery_date"),
             category=None,
             courier_partner=None,
             delivery_pincode=None,
-            confidence=0.8 if data.get("order_id") else 0.3,
+            confidence=0.8,
         )
 
     except json.JSONDecodeError as e:
