@@ -172,20 +172,6 @@ async def _process_one_email(
             print(f"[Gmail] Blocked non-ecommerce brand: {brand_slug}")
             return None
 
-        BLOCKED_BRANDS = {
-            "swiggy", "zomato", "blinkit", "zepto", "bigbasket", "dunzo",
-            "uber", "ola", "rapido", "eventbrite", "bookmyshow", "paytm",
-            "gpay", "phonepe", "netflix", "spotify", "hotstar", "youtube",
-            "airtel", "jio", "vi", "bsnl","replit", "github", "gitlab", "notion", "figma", "canva",
-            "vercel", "netlify", "heroku", "digitalocean", "aws", "azure",
-            "gcloud", "godaddy", "namecheap", "cloudflare",
-            "chatgpt", "openai", "anthropic", "midjourney",
-            "dropbox", "slack", "zoom", "microsoft", "apple",
-            "google", "icloud", "adobe", "grammarly",
-        }
-        if brand_slug in BLOCKED_BRANDS:
-            print(f"[Gmail] Blocked non-ecommerce brand: {brand_slug}")
-            return None
 
         extracted = await extract_order_from_email(email_text, brand_slug)
 
@@ -196,14 +182,6 @@ async def _process_one_email(
                 return None
             # Also block if Gemini returned a blocked brand
             extracted_brand_lower = (extracted.brand or "").lower()
-            if any(b in extracted_brand_lower for b in BLOCKED_BRANDS):
-                print(f"[Gmail] Blocked non-ecommerce brand from Gemini: {extracted.brand}")
-                return None
-            order_date = resolve_order_date(
-                gemini_date=extracted.order_date,
-                fallback_date=email_received_date,
-                context=f"{brand_slug} {extracted.order_id}",
-            )
 
             brand_for_calc = (extracted.brand or brand_slug).lower().replace(" ", "")
             brand_map = {
