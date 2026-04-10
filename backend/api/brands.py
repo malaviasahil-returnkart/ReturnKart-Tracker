@@ -5,6 +5,10 @@ from backend.services.community_brands import (
     get_all_community_brands,
     _slug_from_domain,
 )
+from backend.services.brand_validator import (
+    validate_brand_submission,
+)
+from backend.services.supabase_service import get_client
 
 router = APIRouter(prefix="/api/brands", tags=["brands"])
 
@@ -23,17 +27,33 @@ async def submit_brand(body: BrandSubmission):
         raise HTTPException(400, "Domain and brand name required")
     if len(body.brand_name) > 100:
         raise HTTPException(400, "Brand name too long")
-    slug = _slug_from_domain(body.domain)
+
+    # Run 6-layer security validation
+    is_valid, message, clean_domain, clean_name, approval = await validate_brand_submission(
+        body.domain, body.brand_name, body.user_id, get_client()
+    )
+
+    if not is_valid:
+        raise HTTPException(400, message)
+
+    slug = _slug_from_domain(clean_domain)
+
     result = await add_community_brand(
-        domain=body.domain,
-        brand_name=body.brand_name,
+        domain=clean_domain,
+        brand_name=clean_name,
         brand_slug=slug,
         user_id=body.user_id,
         return_days=body.return_days,
         category=body.category,
+        status=approval,
     )
+
     if "error" in result:
         raise HTTPException(400, result["error"])
+
+    if approval == "pending":
+        result["note"] = "Your submission is pending review (new accounts are moderated)"
+
     return result
 
 
