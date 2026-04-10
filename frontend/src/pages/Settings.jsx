@@ -1,3 +1,4 @@
+import AddBrandForm from "../components/AddBrandForm";
 import { useState } from 'react'
 import { api } from '../lib/api'
 import {
@@ -272,6 +273,8 @@ export default function Settings({ userId, userProfile, accounts = [], onBack, o
             </button>
           )}
         </section>
+
+      <AddBrandForm userId={userId} />
 
       </div>
     </div>
