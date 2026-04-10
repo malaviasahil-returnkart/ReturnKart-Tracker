@@ -137,7 +137,7 @@ async def _process_one_email(
     user_id: str,
 ) -> Optional[OrderCreate]:
     from backend.services.gemini_service import extract_order_from_email
-        await _ensure_cache()
+    await _ensure_cache()
 
     try:
         loop = asyncio.get_event_loop()
