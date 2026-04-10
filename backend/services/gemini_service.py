@@ -49,7 +49,7 @@ REJECT and return all nulls for:
 - Informational emails (account updates, policy changes, recommendations)
 - Newsletter or sale announcements
 - Emails that mention products but have NO order ID or NO purchase confirmation
-
+- SaaS subscriptions and digital service purchases (Replit, GitHub, Notion, Figma, Canva, Vercel, AWS, Adobe, ChatGPT, etc.)
 ONLY process emails that are ACTUAL ORDER CONFIRMATIONS or DELIVERY NOTIFICATIONS for physical products from:
 Amazon, Flipkart, Myntra, Meesho, Ajio, Nykaa, Croma, Tata CLiQ, Snapdeal, JioMart, Temu,,
 H&M, Zara, Uniqlo, Mango, Forever 21, Marks & Spencer, GAP, Superdry, Benetton,

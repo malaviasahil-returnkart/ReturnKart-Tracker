@@ -21,6 +21,12 @@ from backend.services.supabase_service import (
 from backend.services.date_utils import parse_email_header_date, resolve_order_date
 from backend.services.return_calculator import calculate_return_deadline
 from backend.models.order import OrderCreate
+from backend.services.community_brands import (
+    _ensure_cache,
+    get_community_keywords,
+    is_in_community_whitelist,
+    get_community_return_days,
+)
 
 IST = timezone(timedelta(hours=5, minutes=30))
 
@@ -117,6 +123,11 @@ def _guess_brand(sender: str, subject: str) -> str:
     for keyword, slug in brands.items():
         if keyword in text:
             return slug
+    # Check community-submitted brands (from Supabase cache)
+    community_kw = get_community_keywords()
+    for keyword, slug in community_kw.items():
+        if keyword in text:
+            return slug
     return "unknown"
 
 
@@ -126,6 +137,7 @@ async def _process_one_email(
     user_id: str,
 ) -> Optional[OrderCreate]:
     from backend.services.gemini_service import extract_order_from_email
+        await _ensure_cache()
 
     try:
         loop = asyncio.get_event_loop()
@@ -164,7 +176,12 @@ async def _process_one_email(
             "swiggy", "zomato", "blinkit", "zepto", "bigbasket", "dunzo",
             "uber", "ola", "rapido", "eventbrite", "bookmyshow", "paytm",
             "gpay", "phonepe", "netflix", "spotify", "hotstar", "youtube",
-            "airtel", "jio", "vi", "bsnl",
+            "airtel", "jio", "vi", "bsnl","replit", "github", "gitlab", "notion", "figma", "canva",
+            "vercel", "netlify", "heroku", "digitalocean", "aws", "azure",
+            "gcloud", "godaddy", "namecheap", "cloudflare",
+            "chatgpt", "openai", "anthropic", "midjourney",
+            "dropbox", "slack", "zoom", "microsoft", "apple",
+            "google", "icloud", "adobe", "grammarly",
         }
         if brand_slug in BLOCKED_BRANDS:
             print(f"[Gmail] Blocked non-ecommerce brand: {brand_slug}")

@@ -1,0 +1,454 @@
+"""
+RETURNKART.IN — BRAND CONFIGURATION (v3)
+Master list of 500+ e-commerce fashion & lifestyle brands active in India.
+Drop this file into backend/services/brand_config.py and import from it.
+
+Usage:
+    from backend.services.brand_config import (
+        ALLOWED_BRANDS,
+        BLOCKED_BRANDS,
+        BRAND_KEYWORDS,
+        BRAND_MAP,
+        RETURN_WINDOWS,
+        GEMINI_ALLOWED_BRANDS_TEXT,
+    )
+"""
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 1. ALLOWED BRANDS — the whitelist. If a brand isn't here, it gets rejected.
+#    This replaces the BLOCKED_BRANDS approach entirely.
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ALLOWED_BRANDS = {
+    # ── E-COMMERCE PLATFORMS ──────────────────────────────────────────────────
+    "amazon", "flipkart", "myntra", "ajio", "nykaa", "meesho",
+    "tatacliq", "snapdeal", "jiomart", "croma", "temu", "limeroad",
+    "koovs", "jabong", "shopclues", "paytmmall", "firstcry", "hopscotch",
+    "purplle", "clovia", "zivame", "nnnow",
+
+    # ── INTERNATIONAL FAST FASHION ────────────────────────────────────────────
+    "hm", "zara", "uniqlo", "mango", "forever21", "marks-spencer",
+    "gap", "superdry", "benetton", "esprit", "pull-bear", "stradivarius",
+    "massimo-dutti", "bershka", "old-navy", "primark", "shein", "asos",
+    "boohoo", "plt", "missguided", "cotton-on", "hollister",
+    "abercrombie", "american-eagle", "aeropostale",
+
+    # ── PREMIUM / LUXURY ──────────────────────────────────────────────────────
+    "tommy-hilfiger", "calvin-klein", "ralph-lauren", "michael-kors",
+    "hugo-boss", "armani-exchange", "guess", "ted-baker", "charles-keith",
+    "aldo", "coach", "kate-spade", "dkny", "versace", "burberry",
+    "gucci", "louis-vuitton", "prada", "fendi", "givenchy", "balenciaga",
+    "bottega-veneta", "valentino", "saint-laurent", "jimmy-choo",
+    "tory-burch", "marc-jacobs", "furla", "longchamp", "michael-aram",
+    "emporio-armani", "diesel", "scotch-soda", "fred-perry", "lacoste",
+    "gant", "brooks-brothers", "hackett", "canali",
+
+    # ── SPORTSWEAR / ACTIVEWEAR ───────────────────────────────────────────────
+    "nike", "adidas", "puma", "reebok", "skechers", "new-balance",
+    "asics", "under-armour", "crocs", "decathlon", "fila", "converse",
+    "columbia", "north-face", "patagonia", "salomon", "vans",
+    "jordan", "hoka", "on-running", "allbirds", "brooks",
+    "mizuno", "yonex", "speedo", "arena", "2xu", "gymshark",
+    "lululemon", "athleta", "zymrat", "cult-sport", "hrx",
+    "anta", "li-ning",
+
+    # ── DENIM / CASUAL WEAR ───────────────────────────────────────────────────
+    "levis", "pepe-jeans", "wrangler", "lee", "us-polo", "jack-jones",
+    "only", "vero-moda", "selected-homme", "gas", "replay", "true-religion",
+    "g-star-raw", "denizen", "flying-machine", "spykar", "mufti",
+    "numero-uno", "john-players", "killer-jeans", "lawman", "lee-cooper",
+    "celio", "ed-hardy", "fcuk",
+
+    # ── FORMAL / OFFICE WEAR ──────────────────────────────────────────────────
+    "louis-philippe", "van-heusen", "allen-solly", "peter-england",
+    "arrow", "raymond", "park-avenue", "blackberrys", "indian-terrain",
+    "colorplus", "zodiac", "excalibur", "john-miller", "turtle",
+    "donear", "next-look", "cambridge", "oxemberg",
+
+    # ── INDIAN D2C / STREETWEAR ───────────────────────────────────────────────
+    "bewakoof", "souled-store", "snitch", "urbanic", "bonkers-corner",
+    "rare-rabbit", "campus-sutra", "the-bear-house", "breakbounce",
+    "blue-tyga", "difference-of-opinion", "here-now", "wrogn", "hrx",
+    "one8-select", "being-human", "jack-jones-india", "street9",
+    "imara", "all-about-you", "sassafras", "stylestone", "dressberry",
+    "roadster", "moda-rapido", "here-and-now", "hubberholme",
+    "maniac", "tripr", "kook-n-keech", "urbano-fashion",
+    "fugazee", "the-indian-garage-co", "asos-design",
+    "mast-harbour", "invictus", "dennison", "harvard",
+    "dillinger", "locomotive", "highlander", "montecarlo",
+    "duke", "wildcraft", "woodland-active", "w-brand",
+
+    # ── ETHNIC / INDIAN WEAR ──────────────────────────────────────────────────
+    "fabindia", "biba", "global-desi", "libas", "w-fashion",
+    "aurelia", "rangmanch", "anouk", "sangria", "shree",
+    "kalki-fashion", "suta", "bunaai", "aachho", "jaypore",
+    "shopmulmul", "indya", "ira-soleil", "raisin", "jompers",
+    "yufta", "nayo", "varanga", "avaasa", "divena",
+    "ada-chikan", "house-of-pataudi", "manyavar", "mohey",
+    "tasva", "sabyasachi", "manish-malhotra", "anita-dongre",
+    "ritu-kumar", "tarun-tahiliani", "raw-mango", "good-earth",
+    "am-pm", "anavila", "masaba", "payal-singhal",
+    "ridhi-mehra", "jayanti-reddy", "rahul-mishra",
+    "abraham-thakore", "rajesh-pratap-singh",
+
+    # ── WOMEN'S FASHION D2C ───────────────────────────────────────────────────
+    "20dresses", "stalkbuylove", "laam", "label-ritu-kumar",
+    "forever-new", "dorothy-perkins", "oasis", "warehouse",
+    "river-island", "ann-taylor", "banana-republic",
+    "mango-woman", "only-women", "vero-moda-women",
+    "harpa", "tokyo-talkies", "sera", "athena", "mayra",
+    "antheaa", "femella", "pannkh", "berrylush", "uptownie",
+    "fablestreet", "salt-attire", "AND", "global-republic",
+    "virgio", "savana", "trendyol", "newme",
+    "stylecast", "20dresses", "kazo", "label-life",
+
+    # ── MEN'S FASHION D2C ─────────────────────────────────────────────────────
+    "jimmy-luxury", "creature", "cristabol", "the-pant-project",
+    "andamen", "mr-button", "the-bear-house", "damensch",
+    "xyxx", "almo", "tadd", "blue-saint", "athlizur",
+    "beyoung", "the-dry-state", "maniac-wear", "ftx",
+    "eyebogler", "veirdo", "greciilooks", "tistabene",
+
+    # ── FOOTWEAR ──────────────────────────────────────────────────────────────
+    "bata", "woodland", "clarks", "hush-puppies", "metro-shoes",
+    "mochi", "liberty-shoes", "red-chief", "lee-cooper-shoes",
+    "birkenstock", "steve-madden", "toms", "dr-martens",
+    "timberland", "ugg", "ecco", "geox", "cole-haan",
+    "call-it-spring", "nine-west", "aldo-shoes", "charles-keith-shoes",
+    "jimmy-choo-shoes", "christian-louboutin", "manolo-blahnik",
+    "el-paso", "campus", "sparx", "lotto", "action",
+    "power", "red-tape", "buckaroo", "provogue",
+    "inc5", "catwalk", "rocia", "tresmode",
+    "saint-g", "dmodot", "neeman", "vostro",
+    "heal-the-world",
+
+    # ── EYEWEAR / WATCHES ─────────────────────────────────────────────────────
+    "lenskart", "titan", "fastrack", "titan-eye-plus",
+    "ray-ban", "oakley", "vogue-eyewear", "john-jacobs",
+    "vincent-chase", "fossil", "casio", "timex",
+    "daniel-wellington", "michael-kors-watches", "guess-watches",
+    "tissot", "tommy-watches", "armani-watches",
+    "noise", "boat", "fire-boltt",
+
+    # ── BAGS / ACCESSORIES ────────────────────────────────────────────────────
+    "samsonite", "american-tourister", "skybags", "wildcraft-bags",
+    "lavie", "caprese", "hidesign", "da-milano", "holii",
+    "baggit", "lino-perros", "esbeda", "accessorize",
+    "fossil-bags", "guess-bags", "tumi", "kipling",
+
+    # ── JEWELRY ───────────────────────────────────────────────────────────────
+    "tanishq", "caratlane", "malabar-gold", "kalyan-jewellers",
+    "pc-jeweller", "senco-gold", "bluestone", "melorra",
+    "candere", "kushal", "voylla", "giva", "shaya",
+    "tribe-by-amrapali", "ritani", "dera-jewels",
+
+    # ── KIDS / MATERNITY ──────────────────────────────────────────────────────
+    "firstcry-brand", "hopscotch-brand", "babyhug", "mothercare",
+    "carter", "h-m-kids", "zara-kids", "gap-kids",
+    "marks-spencer-kids", "united-colors-kids", "max-kids",
+    "lilliput", "gini-jony", "peppermint", "cherry-crumble",
+    "ed-a-mamma", "superyoung", "u-s-polo-kids",
+
+    # ── BEAUTY / PERSONAL CARE (with physical products) ───────────────────────
+    "nykaa-fashion", "sugar-cosmetics", "mamaearth", "wow-skin",
+    "plum-goodness", "forest-essentials", "kama-ayurveda",
+    "bath-body-works", "the-body-shop", "mac", "lakme",
+    "loreal", "maybelline", "colorbar", "faces-canada",
+    "biotique", "just-herbs", "juicy-chemistry",
+
+    # ── HOME / LIFESTYLE (physical products) ──────────────────────────────────
+    "ikea", "pepperfry", "urban-ladder", "hometown",
+    "fabfurnish", "chumbak", "india-circus", "ellementry",
+    "nestasia", "mason-home", "home-centre",
+
+    # ── ELECTRONICS (physical) ────────────────────────────────────────────────
+    "samsung", "oneplus", "xiaomi", "realme", "oppo", "vivo",
+    "apple-store", "sony", "lg", "dell", "hp", "lenovo",
+    "asus", "acer", "boat-lifestyle", "jbl", "bose",
+    "marshall", "sennheiser", "nothing",
+}
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 2. BLOCKED BRANDS — quick commerce, food, cabs, SaaS, OTT, telecom
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+BLOCKED_BRANDS = {
+    # Quick commerce / food delivery
+    "swiggy", "zomato", "blinkit", "zepto", "bigbasket", "dunzo",
+    "swiggy-instamart", "bb-daily", "licious", "country-delight",
+    "milkbasket", "dmart-ready", "faasos", "eatfit", "behrouz",
+    "magicpin", "eatsure", "box8",
+    # Cab / ride hailing
+    "uber", "ola", "rapido", "bluSmart",
+    # Events / entertainment
+    "eventbrite", "bookmyshow", "paytm-insider", "insider",
+    # OTT / streaming
+    "netflix", "spotify", "hotstar", "youtube", "prime-video",
+    "jiocinema", "zee5", "sonyliv", "voot", "mxplayer",
+    "apple-music", "gaana", "wynk",
+    # Telecom / recharges
+    "airtel", "jio", "vi", "bsnl",
+    # Payments / wallets
+    "gpay", "phonepe", "paytm", "cred", "mobikwik", "freecharge",
+    # SaaS / digital services
+    "replit", "github", "gitlab", "notion", "figma", "canva",
+    "vercel", "netlify", "heroku", "digitalocean", "aws", "azure",
+    "gcloud", "godaddy", "namecheap", "cloudflare", "chatgpt",
+    "openai", "anthropic", "midjourney", "grammarly", "adobe",
+    "dropbox", "slack", "zoom", "microsoft", "google", "icloud",
+    "linkedin-premium", "twitter-premium", "facebook",
+    # Travel (no physical return)
+    "makemytrip", "goibibo", "cleartrip", "irctc", "yatra",
+    "easemytrip", "ixigo", "oyo", "airbnb",
+    # Insurance / finance
+    "policybazaar", "acko", "digit", "groww", "zerodha", "upstox",
+}
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 3. BRAND KEYWORDS — maps email sender/subject keywords → brand slugs
+#    Used in _guess_brand(sender, subject)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+BRAND_KEYWORDS = {
+    # E-commerce platforms
+    "amazon": "amazon", "flipkart": "flipkart", "myntra": "myntra",
+    "meesho": "meesho", "ajio": "ajio", "nykaa": "nykaa",
+    "jiomart": "jiomart", "tatacliq": "tatacliq", "snapdeal": "snapdeal",
+    "croma": "croma", "temu": "temu", "limeroad": "limeroad",
+    "firstcry": "firstcry", "hopscotch": "hopscotch",
+    "purplle": "purplle", "clovia": "clovia", "zivame": "zivame",
+    "nnnow": "nnnow",
+
+    # International fast fashion
+    "h&m": "hm", "hm.com": "hm", "hennes": "hm",
+    "zara": "zara", "uniqlo": "uniqlo", "mango": "mango",
+    "forever21": "forever21", "forever 21": "forever21",
+    "marksandspencer": "marks-spencer", "marks & spencer": "marks-spencer",
+    "m&s": "marks-spencer", "gap.com": "gap", "gapindia": "gap",
+    "superdry": "superdry", "benetton": "benetton",
+    "pull&bear": "pull-bear", "stradivarius": "stradivarius",
+    "massimo dutti": "massimo-dutti", "massimodutti": "massimo-dutti",
+    "bershka": "bershka", "shein": "shein", "asos": "asos",
+    "cotton on": "cotton-on", "hollister": "hollister",
+    "abercrombie": "abercrombie", "american eagle": "american-eagle",
+    "aeropostale": "aeropostale",
+
+    # Premium / luxury
+    "tommy": "tommy-hilfiger", "tommyhilfiger": "tommy-hilfiger",
+    "tommy hilfiger": "tommy-hilfiger",
+    "calvinklein": "calvin-klein", "calvin klein": "calvin-klein", "ck.com": "calvin-klein",
+    "ralphlauren": "ralph-lauren", "ralph lauren": "ralph-lauren",
+    "michaelkors": "michael-kors", "michael kors": "michael-kors",
+    "hugoboss": "hugo-boss", "hugo boss": "hugo-boss", "hugo.com": "hugo-boss",
+    "armaniexchange": "armani-exchange", "armani exchange": "armani-exchange", "a|x": "armani-exchange",
+    "guess.com": "guess", "guessindia": "guess",
+    "tedbaker": "ted-baker", "ted baker": "ted-baker",
+    "charleskeith": "charles-keith", "charles & keith": "charles-keith",
+    "aldo": "aldo", "coach": "coach", "katespade": "kate-spade", "kate spade": "kate-spade",
+    "dkny": "dkny", "lacoste": "lacoste", "gant": "gant",
+    "diesel": "diesel", "scotch & soda": "scotch-soda",
+    "fred perry": "fred-perry", "fredperry": "fred-perry",
+
+    # Sportswear
+    "nike": "nike", "adidas": "adidas", "puma": "puma",
+    "reebok": "reebok", "skechers": "skechers",
+    "newbalance": "new-balance", "new balance": "new-balance",
+    "asics": "asics", "underarmour": "under-armour", "under armour": "under-armour",
+    "crocs": "crocs", "decathlon": "decathlon",
+    "fila": "fila", "converse": "converse", "vans": "vans",
+    "columbia": "columbia", "thenorthface": "north-face", "north face": "north-face",
+    "hoka": "hoka", "on-running": "on-running",
+    "jordan": "jordan", "hrx": "hrx", "cultsport": "cult-sport",
+    "zymrat": "zymrat", "gymshark": "gymshark",
+
+    # Denim / casual
+    "levi": "levis", "levis": "levis", "pepejeans": "pepe-jeans", "pepe jeans": "pepe-jeans",
+    "wrangler": "wrangler", "lee.com": "lee", "leejeans": "lee",
+    "uspoloassn": "us-polo", "us polo": "us-polo", "uspa": "us-polo",
+    "jack&jones": "jack-jones", "jackjones": "jack-jones", "jack & jones": "jack-jones",
+    "only.com": "only", "veromoda": "vero-moda", "vero moda": "vero-moda",
+    "selected homme": "selected-homme",
+    "g-star": "g-star-raw", "gstar": "g-star-raw",
+    "gas jeans": "gas", "gas.com": "gas",
+    "flyingmachine": "flying-machine", "flying machine": "flying-machine",
+    "spykar": "spykar", "mufti": "mufti",
+
+    # Formal / office
+    "louisphilippe": "louis-philippe", "louis philippe": "louis-philippe",
+    "vanheusen": "van-heusen", "van heusen": "van-heusen",
+    "allensolly": "allen-solly", "allen solly": "allen-solly",
+    "peterengland": "peter-england", "peter england": "peter-england",
+    "arrow": "arrow", "raymond": "raymond", "park avenue": "park-avenue",
+    "parkavenue": "park-avenue", "blackberrys": "blackberrys",
+    "indian terrain": "indian-terrain", "indianterrain": "indian-terrain",
+    "colorplus": "colorplus", "zodiac": "zodiac",
+
+    # Indian D2C / streetwear
+    "bewakoof": "bewakoof",
+    "souledstore": "souled-store", "the souled store": "souled-store", "thesouledstore": "souled-store",
+    "snitch": "snitch", "urbanic": "urbanic",
+    "bonkerscorner": "bonkers-corner", "bonkers corner": "bonkers-corner",
+    "rarerabbit": "rare-rabbit", "rare rabbit": "rare-rabbit",
+    "campussutra": "campus-sutra", "campus sutra": "campus-sutra",
+    "wrogn": "wrogn", "being human": "being-human", "beinghuman": "being-human",
+    "roadster": "roadster", "montecarlo": "montecarlo",
+    "wildcraft": "wildcraft", "highlander": "highlander",
+    "damensch": "damensch", "xyxx": "xyxx",
+    "beyoung": "beyoung", "fugazee": "fugazee",
+
+    # Ethnic / Indian
+    "fabindia": "fabindia", "biba": "biba",
+    "globaldesi": "global-desi", "global desi": "global-desi",
+    "libas": "libas", "aurelia": "aurelia", "w-brand": "w-brand",
+    "wforwoman": "w-fashion", "anouk": "anouk",
+    "manyavar": "manyavar", "mohey": "mohey", "tasva": "tasva",
+    "kalkifashion": "kalki-fashion", "kalki fashion": "kalki-fashion",
+    "jaypore": "jaypore", "indya": "indya",
+    "anitadongre": "anita-dongre", "anita dongre": "anita-dongre",
+    "sabyasachi": "sabyasachi", "ritukumar": "ritu-kumar", "ritu kumar": "ritu-kumar",
+    "masaba": "masaba", "raw mango": "raw-mango",
+    "suta": "suta", "bunaai": "bunaai", "aachho": "aachho",
+    "shopmulmul": "shopmulmul",
+
+    # Footwear
+    "bata": "bata", "woodland": "woodland", "clarks": "clarks",
+    "hushpuppies": "hush-puppies", "hush puppies": "hush-puppies",
+    "metroshoes": "metro-shoes", "metro shoes": "metro-shoes",
+    "mochi": "mochi", "liberty": "liberty-shoes",
+    "birkenstock": "birkenstock", "stevemadden": "steve-madden", "steve madden": "steve-madden",
+    "dr martens": "dr-martens", "drmartens": "dr-martens",
+    "timberland": "timberland", "ecco": "ecco",
+    "colehaan": "cole-haan", "cole haan": "cole-haan",
+    "redchief": "red-chief", "red chief": "red-chief",
+    "redtape": "red-tape", "red tape": "red-tape",
+    "campus shoes": "campus", "sparx": "sparx",
+    "neeman": "neeman", "catwalk": "catwalk",
+
+    # Eyewear / watches
+    "lenskart": "lenskart", "titan": "titan", "fastrack": "fastrack",
+    "rayban": "ray-ban", "ray-ban": "ray-ban",
+    "oakley": "oakley", "johnjacobs": "john-jacobs",
+    "vincentchase": "vincent-chase",
+    "fossil": "fossil", "casio": "casio", "timex": "timex",
+    "danielwellington": "daniel-wellington", "daniel wellington": "daniel-wellington",
+    "noise": "noise", "boat": "boat", "fireboltt": "fire-boltt",
+
+    # Bags / accessories
+    "samsonite": "samsonite", "american tourister": "american-tourister",
+    "americantourister": "american-tourister",
+    "skybags": "skybags", "lavie": "lavie", "caprese": "caprese",
+    "hidesign": "hidesign", "damilano": "da-milano", "da milano": "da-milano",
+    "baggit": "baggit", "accessorize": "accessorize",
+    "tumi": "tumi", "kipling": "kipling",
+
+    # Jewelry
+    "tanishq": "tanishq", "caratlane": "caratlane",
+    "malabar gold": "malabar-gold", "malabargold": "malabar-gold",
+    "kalyan jewellers": "kalyan-jewellers", "kalyanjewellers": "kalyan-jewellers",
+    "bluestone": "bluestone", "melorra": "melorra",
+    "candere": "candere", "giva": "giva",
+
+    # Kids
+    "mothercare": "mothercare", "carters": "carter",
+    "lilliput": "lilliput", "gini & jony": "gini-jony",
+
+    # Home / lifestyle
+    "ikea": "ikea", "pepperfry": "pepperfry",
+    "urbanladder": "urban-ladder", "urban ladder": "urban-ladder",
+    "chumbak": "chumbak",
+
+    # Electronics (physical)
+    "samsung": "samsung", "oneplus": "oneplus", "xiaomi": "xiaomi",
+    "realme": "realme", "oppo": "oppo", "vivo": "vivo",
+    "sony": "sony", "dell": "dell", "hp.com": "hp",
+    "lenovo": "lenovo", "asus": "asus", "jbl": "jbl",
+    "bose": "bose", "marshall": "marshall", "nothing": "nothing",
+
+    # ── BLOCKED KEYWORDS (quick commerce, food, cabs, SaaS) ──
+    "swiggy": "swiggy", "zomato": "zomato", "blinkit": "blinkit",
+    "bigbasket": "bigbasket", "zepto": "zepto", "dunzo": "dunzo",
+    "uber": "uber", "ola": "ola", "rapido": "rapido",
+    "eventbrite": "eventbrite", "bookmyshow": "bookmyshow",
+    "replit": "replit", "github": "github", "notion": "notion",
+}
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 4. RETURN WINDOWS (days) — used by return_calculator.py
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+DEFAULT_RETURN_DAYS = 15
+
+RETURN_WINDOWS = {
+    # Platforms
+    "amazon": 10, "flipkart": 10, "myntra": 30, "ajio": 15,
+    "nykaa": 15, "meesho": 7, "tatacliq": 30, "snapdeal": 7,
+    "jiomart": 7, "croma": 10, "temu": 90, "limeroad": 15,
+    "firstcry": 15,
+    # International fast fashion
+    "hm": 15, "zara": 30, "uniqlo": 30, "mango": 30,
+    "forever21": 15, "marks-spencer": 30, "gap": 30,
+    "superdry": 14, "benetton": 30, "shein": 15, "asos": 28,
+    # Premium
+    "tommy-hilfiger": 30, "calvin-klein": 30, "ralph-lauren": 30,
+    "michael-kors": 30, "hugo-boss": 30, "lacoste": 30,
+    "guess": 30, "coach": 30, "kate-spade": 30,
+    # Sportswear
+    "nike": 30, "adidas": 30, "puma": 14, "reebok": 15,
+    "skechers": 30, "new-balance": 30, "asics": 30,
+    "under-armour": 30, "crocs": 30, "decathlon": 365,
+    # Denim
+    "levis": 30, "pepe-jeans": 15, "wrangler": 15,
+    "us-polo": 15, "jack-jones": 30, "vero-moda": 30,
+    # Formal
+    "louis-philippe": 15, "van-heusen": 15, "allen-solly": 15,
+    "peter-england": 15, "arrow": 15, "raymond": 15,
+    # Indian D2C
+    "bewakoof": 15, "souled-store": 15, "snitch": 15,
+    "urbanic": 15, "rare-rabbit": 15, "bonkers-corner": 15,
+    "campus-sutra": 7, "wrogn": 15, "being-human": 15,
+    "roadster": 30, "damensch": 15, "xyxx": 15,
+    # Ethnic
+    "fabindia": 7, "biba": 15, "global-desi": 15, "libas": 7,
+    "manyavar": 7, "kalki-fashion": 7, "jaypore": 7,
+    "anita-dongre": 7, "sabyasachi": 7,
+    # Footwear
+    "bata": 30, "woodland": 30, "clarks": 30,
+    "hush-puppies": 30, "metro-shoes": 15, "mochi": 15,
+    "liberty-shoes": 15, "birkenstock": 30, "steve-madden": 15,
+    "red-chief": 15, "red-tape": 15, "campus": 15,
+    # Eyewear / watches
+    "lenskart": 14, "titan": 30, "fastrack": 30,
+    "fossil": 30, "noise": 15, "boat": 7,
+    # Bags
+    "samsonite": 30, "american-tourister": 30, "hidesign": 30,
+    # Jewelry
+    "tanishq": 15, "caratlane": 15, "bluestone": 15,
+    # Home
+    "ikea": 365, "pepperfry": 15, "urban-ladder": 7,
+    # Electronics
+    "samsung": 10, "oneplus": 15, "xiaomi": 7, "apple-store": 14,
+    "sony": 10, "dell": 15, "boat-lifestyle": 7,
+}
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 5. GEMINI PROMPT TEXT — paste into EXTRACTION_PROMPT
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+GEMINI_ALLOWED_BRANDS_TEXT = """ONLY process emails that are ACTUAL ORDER CONFIRMATIONS or DELIVERY NOTIFICATIONS for PHYSICAL PRODUCTS from any legitimate e-commerce platform or fashion/lifestyle brand, including but not limited to:
+Amazon, Flipkart, Myntra, Ajio, Meesho, Nykaa, Tata CLiQ, Snapdeal, JioMart, Croma, Temu, Limeroad, FirstCry,
+H&M, Zara, Uniqlo, Mango, Forever 21, Marks & Spencer, GAP, Superdry, Benetton, Shein, ASOS, Pull & Bear, Massimo Dutti, Bershka, Stradivarius,
+Tommy Hilfiger, Calvin Klein, Ralph Lauren, Michael Kors, Hugo Boss, Armani Exchange, Guess, Ted Baker, Charles & Keith, Aldo, Coach, Kate Spade, DKNY, Lacoste, Diesel, Gant,
+Nike, Adidas, Puma, Reebok, Skechers, New Balance, ASICS, Under Armour, Crocs, Decathlon, Fila, Converse, Vans, Columbia, The North Face, HRX,
+Levi's, Pepe Jeans, Wrangler, Lee, US Polo, Jack & Jones, Only, Vero Moda, G-Star Raw, Flying Machine, Spykar, Mufti, Gas,
+Louis Philippe, Van Heusen, Allen Solly, Peter England, Arrow, Raymond, Park Avenue, Blackberrys, Indian Terrain,
+Bewakoof, The Souled Store, Snitch, Urbanic, Bonkers Corner, Rare Rabbit, Campus Sutra, Wrogn, Being Human, Roadster, DaMENSCH, XYXX, Beyoung,
+FabIndia, Biba, W, Global Desi, Libas, Aurelia, Anouk, Manyavar, Mohey, Kalki Fashion, Jaypore, Indya, Anita Dongre, Sabyasachi, Ritu Kumar, Masaba, Suta,
+Bata, Woodland, Clarks, Hush Puppies, Metro Shoes, Mochi, Liberty, Birkenstock, Steve Madden, Dr. Martens, Timberland, Red Chief, Red Tape, Campus, Neeman,
+Lenskart, Titan, Fastrack, Ray-Ban, Fossil, Casio, Daniel Wellington, Noise, boAt, Fire-Boltt,
+Samsonite, American Tourister, Skybags, Lavie, Hidesign, Da Milano, Baggit,
+Tanishq, CaratLane, BlueStone, Melorra, Giva,
+IKEA, Pepperfry, Urban Ladder, Chumbak,
+Samsung, OnePlus, Xiaomi, Realme, Apple, Sony, Dell, HP, Lenovo, JBL, Bose, Marshall, Nothing,
+or ANY other brand selling physical returnable products.
+
+Do NOT process if the brand is ONLY a marketplace and the email is about services, not physical products."""

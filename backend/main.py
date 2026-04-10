@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-
+from backend.api.brands import router as brands_router
 from backend.config import PORT, FRONTEND_URL, ENV
 from backend.api.health import router as health_router
 from backend.api.auth import router as auth_router
@@ -17,6 +17,7 @@ from backend.api.orders import router as orders_router
 from backend.api.whatsapp import router as whatsapp_router
 from backend.api.email_providers import router as email_providers_router
 from backend.api.sms import router as sms_router
+
 
 app = FastAPI(
     title="ReturnKart.in API",
@@ -40,6 +41,7 @@ app.include_router(auth_router,            prefix="/api/auth",    tags=["auth"])
 app.include_router(orders_router,          prefix="/api/orders",  tags=["orders"])
 app.include_router(whatsapp_router,        prefix="/api/whatsapp",tags=["whatsapp"])
 app.include_router(email_providers_router, prefix="/api/email",   tags=["email"])
+app.include_router(brands_router)
 app.include_router(sms_router,             prefix="/api/sms",     tags=["sms"])
 
 # Serve React frontend from /frontend/dist
