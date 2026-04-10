@@ -160,9 +160,23 @@ async def _process_one_email(
             print(f"[Gmail] Blocked non-ecommerce brand: {brand_slug}")
             return None
 
+        BLOCKED_BRANDS = {
+            "swiggy", "zomato", "blinkit", "zepto", "bigbasket", "dunzo",
+            "uber", "ola", "rapido", "eventbrite", "bookmyshow", "paytm",
+            "gpay", "phonepe", "netflix", "spotify", "hotstar", "youtube",
+            "airtel", "jio", "vi", "bsnl",
+        }
+        if brand_slug in BLOCKED_BRANDS:
+            print(f"[Gmail] Blocked non-ecommerce brand: {brand_slug}")
+            return None
+
         extracted = await extract_order_from_email(email_text, brand_slug)
 
         if extracted and extracted.order_id:
+            extracted_brand_lower = (extracted.brand or "").lower()
+            if any(b in extracted_brand_lower for b in BLOCKED_BRANDS):
+                print(f"[Gmail] Blocked non-ecommerce brand from Gemini: {extracted.brand}")
+                return None
             # Also block if Gemini returned a blocked brand
             extracted_brand_lower = (extracted.brand or "").lower()
             if any(b in extracted_brand_lower for b in BLOCKED_BRANDS):

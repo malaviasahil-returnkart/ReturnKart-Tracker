@@ -51,7 +51,13 @@ REJECT and return all nulls for:
 - Emails that mention products but have NO order ID or NO purchase confirmation
 
 ONLY process emails that are ACTUAL ORDER CONFIRMATIONS or DELIVERY NOTIFICATIONS for physical products from:
-Amazon, Flipkart, Myntra, Meesho, Ajio, Nykaa, Croma, Tata CLiQ, Snapdeal, JioMart, Temu
+Amazon, Flipkart, Myntra, Meesho, Ajio, Nykaa, Croma, Tata CLiQ, Snapdeal, JioMart, Temu,,
+H&M, Zara, Uniqlo, Mango, Forever 21, Marks & Spencer, GAP, Superdry, Benetton,
+Tommy Hilfiger, Calvin Klein, Ralph Lauren, Michael Kors, Hugo Boss, Guess, Charles & Keith, Aldo, Coach,
+Nike, Adidas, Puma, Reebok, Skechers, New Balance, ASICS, Under Armour, Crocs, Decathlon,
+Levis, Pepe Jeans, Wrangler, US Polo, Jack & Jones, Vero Moda,
+FabIndia, Biba, Libas, Bewakoof, The Souled Store, Snitch, Urbanic, Rare Rabbit,
+Bata, Woodland, Clarks, Lenskart, Titan
 
 Return ONLY a valid JSON object. No markdown, no explanation, no code fences.
 
