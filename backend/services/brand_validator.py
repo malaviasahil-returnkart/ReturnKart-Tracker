@@ -7,7 +7,8 @@ Drop this file into backend/services/brand_validator.py
 """
 import re
 from typing import Optional, Tuple
-from backend.services.brand_config import BLOCKED_BRANDS, ALLOWED_BRANDS
+BLOCKED_BRANDS={"swiggy","zomato","blinkit","zepto","bigbasket","dunzo","uber","ola","rapido","replit","github","netflix","spotify","hotstar","paytm","phonepe","gpay","airtel","jio","vi","bsnl","eventbrite","bookmyshow","notion","figma","canva"}
+ALLOWED_BRANDS=set()
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
