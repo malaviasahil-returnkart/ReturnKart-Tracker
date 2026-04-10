@@ -23,6 +23,7 @@ from backend.models.order import OrderCreate
 from backend.services.supabase_service import upsert_order
 from backend.services.date_utils import parse_epoch_ms, resolve_order_date
 from backend.services.gemini_service import call_gemini
+from backend.services.brand_validator import BLOCKED_BRANDS
 
 IST = timezone(timedelta(hours=5, minutes=30))
 
@@ -48,7 +49,18 @@ ECOMMERCE_KEYWORDS = [
 ]
 
 
+def _is_blocked_sender(sender: str, text: str) -> bool:
+    """Check if SMS sender is a blocked brand (quick commerce, SaaS, etc.)"""
+    combined = (sender + " " + text).lower()
+    for blocked in BLOCKED_BRANDS:
+        if blocked in combined:
+            print(f"[SMS] Skipped blocked brand in SMS: {blocked}")
+            return True
+    return False
+
 def is_ecommerce_sms(sender: str, text: str) -> bool:
+    if _is_blocked_sender(sender, text):
+        return False
     sender_upper = sender.upper().strip()
     if sender_upper in ECOMMERCE_SENDER_IDS:
         return True

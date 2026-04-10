@@ -23,6 +23,7 @@ from typing import Optional
 from backend.services.supabase_service import upsert_order
 from backend.services.date_utils import parse_email_header_date, resolve_order_date
 from backend.models.order import OrderCreate
+from backend.services.brand_validator import BLOCKED_BRANDS
 
 IST = timezone(timedelta(hours=5, minutes=30))
 
@@ -158,7 +159,20 @@ async def sync_imap_orders(
                             break
 
                     email_text = f"Subject: {subject}\nFrom: {sender}\nDate: {date_str}\n\n{body}"
-                    extracted = await extract_order_from_email(email_text, platform)
+                    # Skip blocked brands (quick commerce, SaaS, etc.)
+            sender_lower = (sender or "").lower()
+            subject_lower = (subject or "").lower()
+            combined = sender_lower + " " + subject_lower
+            skip = False
+            for blocked in BLOCKED_BRANDS:
+                if blocked in combined:
+                    print(f"[IMAP] Skipped blocked brand: {blocked}")
+                    skip = True
+                    break
+            if skip:
+                skipped += 1
+                continue
+            extracted = await extract_order_from_email(email_text, platform)
 
                     if extracted and extracted.order_id:
                         order = OrderCreate(

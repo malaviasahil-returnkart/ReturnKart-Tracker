@@ -18,6 +18,7 @@ from backend.config import GEMINI_API_KEY
 from backend.models.order import OrderCreate
 from backend.services.supabase_service import upsert_order
 from backend.services.gemini_service import call_gemini
+from backend.services.brand_validator import BLOCKED_BRANDS
 
 from datetime import datetime, timezone, timedelta
 IST = timezone(timedelta(hours=5, minutes=30))
@@ -33,7 +34,18 @@ KNOWN_ECOMMERCE_WABIZ_NUMBERS = {
 }
 
 
+def _is_blocked_wa_sender(sender: str, text: str) -> bool:
+    """Check if WhatsApp sender is a blocked brand."""
+    combined = (sender + " " + text).lower()
+    for blocked in BLOCKED_BRANDS:
+        if blocked in combined:
+            print(f"[WhatsApp] Skipped blocked brand in WhatsApp: {blocked}")
+            return True
+    return False
+
 def is_ecommerce_notification(sender: str, text: str) -> bool:
+    if _is_blocked_wa_sender(sender, text):
+        return False
     sender_lower = sender.lower().strip()
     if any(brand in sender_lower for brand in ECOMMERCE_SENDERS):
         return True

@@ -27,6 +27,7 @@ from backend.config import (
 )
 from backend.services.supabase_service import save_email_token, get_email_token, upsert_order
 from backend.models.order import OrderCreate
+from backend.services.brand_validator import BLOCKED_BRANDS
 
 IST = timezone(timedelta(hours=5, minutes=30))
 
@@ -170,7 +171,20 @@ async def sync_outlook_orders(user_id: str, max_emails: int = 50) -> dict:
                         body      = msg.get("body", {}).get("content", "")[:8000]
 
                         email_text = f"Subject: {subject}\nFrom: {sender}\nDate: {date_str}\n\n{body}"
-                        extracted = await extract_order_from_email(email_text, platform)
+                        # Skip blocked brands (quick commerce, SaaS, etc.)
+            sender_lower = (sender or "").lower()
+            subject_lower = (subject or "").lower()
+            combined = sender_lower + " " + subject_lower
+            skip = False
+            for blocked in BLOCKED_BRANDS:
+                if blocked in combined:
+                    print(f"[Outlook] Skipped blocked brand: {blocked}")
+                    skip = True
+                    break
+            if skip:
+                skipped += 1
+                continue
+            extracted = await extract_order_from_email(email_text, platform)
 
                         if extracted and extracted.order_id:
                             order = OrderCreate(
